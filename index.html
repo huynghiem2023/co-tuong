@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Ứng dụng huấn luyện khai cuộc Cờ Tướng - Học và luyện tập 30 thế trận khai cuộc phổ biến nhất">
+    <meta name="theme-color" content="#f0c040">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Cờ Tướng">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <title>Cờ Tướng - Huấn Luyện Khai Cuộc</title>
+    <link rel="stylesheet" href="css/style.css?v=10">
+</head>
+<body>
+    <div class="overlay" id="overlay"></div>
+
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1>♟️ Khai Cuộc Cờ Tướng</h1>
+                <p>30 thế trận huấn luyện</p>
+            </div>
+            <div id="opening-menu"></div>
+        </aside>
+
+        <!-- Main -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <button id="mobile-menu-btn">☰</button>
+                <div class="mode-switch">
+                    <button class="mode-btn active" id="mode-tutorial">📖 Hướng dẫn</button>
+                    <button class="mode-btn" id="mode-quiz">🧩 Luyện tập</button>
+                </div>
+                <div class="theme-selector">
+                    <label for="theme-select">🎨</label>
+                    <select id="theme-select">
+                        <option value="classic">🪵 Gỗ cổ điển</option>
+                        <option value="jade">💎 Ngọc bích</option>
+                        <option value="dark">🌑 Đêm tối</option>
+                        <option value="rosewood">🟤 Gỗ hồng sắc</option>
+                        <option value="parchment">📜 Giấy da</option>
+                        <option value="realistic3d">🏆 3D Chân thực</option>
+                    </select>
+                </div>
+                <div id="opening-name">Chọn thế trận</div>
+            </div>
+
+            <!-- Board Area -->
+            <div class="board-area">
+                <div id="board-container">
+                    <canvas id="game-board"></canvas>
+                </div>
+
+                <div class="info-panel">
+                    <!-- Description -->
+                    <div class="panel-card">
+                        <h3>📋 Mô tả</h3>
+                        <div id="opening-desc">Chọn một thế trận từ menu để bắt đầu.</div>
+                    </div>
+
+                    <!-- Explanation -->
+                    <div class="panel-card">
+                        <h3>💬 Giải thích nước đi</h3>
+                        <div id="explanation-text">Sẵn sàng...</div>
+                    </div>
+
+                    <!-- Tutorial Controls -->
+                    <div class="panel-card">
+                        <div class="controls-row" id="tutorial-controls">
+                            <button class="ctrl-btn" id="btn-start" title="Về đầu (Home)">⏮</button>
+                            <button class="ctrl-btn" id="btn-prev" title="Lùi (←)">◀</button>
+                            <button class="ctrl-btn" id="btn-autoplay" title="Tự động chạy">⏵</button>
+                            <button class="ctrl-btn" id="btn-next" title="Tiến (→)">▶</button>
+                            <button class="ctrl-btn" id="btn-end" title="Về cuối (End)">⏭</button>
+                            <span id="move-counter">0 / 0</span>
+                            <button class="ctrl-btn play-ai-btn" id="btn-play-ai" title="Đấu với Máy">⚔️</button>
+                        </div>
+                        <div class="controls-row" id="quiz-controls">
+                            <button class="quiz-btn" id="btn-hint">💡 Gợi ý</button>
+                            <button class="quiz-btn" id="btn-retry">🔄 Làm lại</button>
+                            <span id="quiz-score">✅ 0  ❌ 0</span>
+                        </div>
+                        <div id="quiz-options">
+                            <p>Chọn bên bạn muốn luyện tập:</p>
+                            <div class="quiz-side-btns">
+                                <button class="quiz-btn primary" id="quiz-red">🔴 Đi Tiên (Đỏ)</button>
+                                <button class="quiz-btn secondary" id="quiz-black">⚫ Đi Hậu (Đen)</button>
+                            </div>
+                        </div>
+                        <div class="controls-row" id="play-controls" style="display:none">
+                            <span id="play-status" class="play-status">Sẵn sàng...</span>
+                            <span id="play-move-count" class="play-move-count">Nước đi: 0</span>
+                            <button class="quiz-btn" id="btn-play-hint">💡 Gợi ý</button>
+                            <button class="quiz-btn" id="btn-undo">↩️ Undo</button>
+                            <button class="quiz-btn" id="btn-resign">🏳️ Đầu hàng</button>
+                            <button class="quiz-btn primary" id="btn-new-game">🔄 Chơi lại</button>
+                        </div>
+                        <div class="progress-bar"><div id="progress-fill"></div></div>
+                    </div>
+
+                    <!-- Move List -->
+                    <div class="panel-card move-list-container">
+                        <h3>📜 Danh sách nước đi</h3>
+                        <div id="move-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/game.js?v=10"></script>
+    <script src="js/board.js?v=10"></script>
+    <script src="js/rules.js?v=10"></script>
+    <script src="js/ai.js?v=10"></script>
+    <script src="js/openings.js?v=10"></script>
+    <script src="js/tutorial.js?v=10"></script>
+    <script src="js/quiz.js?v=10"></script>
+    <script src="js/play.js?v=10"></script>
+    <script src="js/app.js?v=10"></script>
+    <script>
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>

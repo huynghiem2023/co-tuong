@@ -1,0 +1,24 @@
+{
+    "name": "Cờ Tướng - Huấn Luyện Khai Cuộc",
+    "short_name": "Cờ Tướng",
+    "description": "Ứng dụng huấn luyện khai cuộc Cờ Tướng - Học và luyện tập 30 thế trận khai cuộc phổ biến nhất. Đấu với AI sau khai cuộc.",
+    "start_url": "./",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#0a0a1a",
+    "theme_color": "#f0c040",
+    "icons": [
+        {
+            "src": "assets/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
