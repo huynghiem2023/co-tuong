@@ -42,6 +42,14 @@ const BOARD_THEMES = {
         boardBorder: '#4a2a0a', gridLine: '#4a3018', markerColor: '#4a3018', riverText: '#4a3018',
         redPiece: ['#ff9a8b','#d32f2f','#7f0000'], redRing: 'rgba(255,205,210,0.8)', redChar: '#fff5f5',
         blackPiece: ['#78909c','#37474f','#111'], blackRing: 'rgba(176,190,197,0.6)', blackChar: '#eceff1'
+    },
+    royal: {
+        name: '👑 Hoàng Gia', isRoyal: true,
+        boardShadow: '#3a2a10', boardBg: ['#dcc07a','#d2b468','#c8a85a','#c0a050'],
+        boardBorder: '#1a5a8a', gridLine: '#6a5530', markerColor: '#6a5530', riverText: '#7a6540',
+        frameBorder: '#1a5a8a', frameHighlight: '#4aa0d0', frameGold: '#c8a040',
+        redPiece: ['#f0dcc0','#e8d0b0','#c8a880'], redRing: 'rgba(180,60,40,0.6)', redChar: '#8b1a1a',
+        blackPiece: ['#f0dcc0','#e8d0b0','#c8a880'], blackRing: 'rgba(40,60,80,0.5)', blackChar: '#1a1a2a'
     }
 };
 
@@ -156,7 +164,8 @@ class BoardRenderer {
 
     // ==================== BOARD DRAWING ====================
     drawBoard() {
-        if (this.theme.is3D) { this.drawBoard3D(); }
+        if (this.theme.isRoyal) { this.drawBoardRoyal(); }
+        else if (this.theme.is3D) { this.drawBoard3D(); }
         else { this.drawBoard2D(); }
     }
 
@@ -178,6 +187,72 @@ class BoardRenderer {
         ctx.strokeRect(p - 15, p - 15, 8 * cs + 30, 9 * cs + 30);
         ctx.lineWidth = 1;
         ctx.strokeRect(p - 5, p - 5, 8 * cs + 10, 9 * cs + 10);
+        this.drawGridLines();
+    }
+
+    drawBoardRoyal() {
+        const ctx = this.ctx, cs = this.cellSize, p = this.padding, t = this.theme;
+        const fx = p - 38, fy = p - 38, fw = 8 * cs + 76, fh = 9 * cs + 76;
+
+        // Outer shadow
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 30;
+        ctx.shadowOffsetX = 4; ctx.shadowOffsetY = 6;
+        ctx.fillStyle = '#0a2a4a'; ctx.fillRect(fx, fy, fw, fh);
+        ctx.restore();
+
+        // Blue ornate outer frame
+        const frameG = ctx.createLinearGradient(fx, fy, fx + fw, fy + fh);
+        frameG.addColorStop(0, '#1a6a9a'); frameG.addColorStop(0.15, '#2080b0');
+        frameG.addColorStop(0.4, '#4aa0d0'); frameG.addColorStop(0.6, '#2888b8');
+        frameG.addColorStop(0.85, '#1a6a9a'); frameG.addColorStop(1, '#104a70');
+        ctx.fillStyle = frameG; ctx.fillRect(fx, fy, fw, fh);
+
+        // Frame decorative border lines
+        ctx.strokeStyle = '#80c8e8'; ctx.lineWidth = 1.5;
+        ctx.strokeRect(fx + 4, fy + 4, fw - 8, fh - 8);
+        ctx.strokeStyle = '#c8a040'; ctx.lineWidth = 1;
+        ctx.strokeRect(fx + 7, fy + 7, fw - 14, fh - 14);
+
+        // Corner ornaments (subtle gold accents)
+        const cornerSize = 18;
+        ctx.strokeStyle = '#d4b050'; ctx.lineWidth = 2;
+        [[fx+10,fy+10,1,1],[fx+fw-10,fy+10,-1,1],[fx+10,fy+fh-10,1,-1],[fx+fw-10,fy+fh-10,-1,-1]].forEach(([cx,cy,dx,dy]) => {
+            ctx.beginPath();
+            ctx.moveTo(cx, cy + dy*cornerSize); ctx.lineTo(cx, cy); ctx.lineTo(cx + dx*cornerSize, cy);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx + dx*3, cy + dy*cornerSize*0.7); ctx.lineTo(cx + dx*3, cy + dy*3); ctx.lineTo(cx + dx*cornerSize*0.7, cy + dy*3);
+            ctx.stroke();
+        });
+
+        // Inner dark red/maroon border
+        const ix = p - 20, iy = p - 20, iw = 8 * cs + 40, ih = 9 * cs + 40;
+        ctx.fillStyle = '#5a2020'; ctx.fillRect(ix, iy, iw, ih);
+        ctx.strokeStyle = '#8a4040'; ctx.lineWidth = 1;
+        ctx.strokeRect(ix + 2, iy + 2, iw - 4, ih - 4);
+
+        // Golden wood board surface
+        const g = ctx.createLinearGradient(p, p, p + 8*cs, p + 9*cs);
+        g.addColorStop(0, t.boardBg[0]); g.addColorStop(0.3, t.boardBg[1]);
+        g.addColorStop(0.7, t.boardBg[2]); g.addColorStop(1, t.boardBg[3]);
+        ctx.fillStyle = g;
+        ctx.fillRect(p - 12, p - 12, 8 * cs + 24, 9 * cs + 24);
+
+        // Subtle wood grain texture
+        ctx.globalAlpha = 0.06;
+        for (let i = 0; i < 40; i++) {
+            const y2 = p - 12 + (i * (9*cs+24) / 40);
+            ctx.strokeStyle = i % 2 === 0 ? '#8a6a30' : '#a08040';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.moveTo(p - 12, y2); ctx.lineTo(p + 8*cs + 12, y2); ctx.stroke();
+        }
+        ctx.globalAlpha = 1.0;
+
+        // Inner board border
+        ctx.strokeStyle = '#7a6030'; ctx.lineWidth = 1.5;
+        ctx.strokeRect(p - 5, p - 5, 8 * cs + 10, 9 * cs + 10);
+
         this.drawGridLines();
     }
 
@@ -319,8 +394,46 @@ class BoardRenderer {
     }
 
     drawPieceAt(x, y, piece) {
-        if (this.theme.is3D) this.drawPiece3D(x, y, piece);
+        if (this.theme.isRoyal) this.drawPieceRoyal(x, y, piece);
+        else if (this.theme.is3D) this.drawPiece3D(x, y, piece);
         else this.drawPiece2D(x, y, piece);
+    }
+
+    drawPieceRoyal(x, y, piece) {
+        const ctx = this.ctx, r = this.pieceRadius, isRed = piece === piece.toUpperCase(), t = this.theme;
+        ctx.save();
+
+        // Piece shadow
+        ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 3;
+
+        // Wooden piece body — natural warm color gradient
+        const bodyG = ctx.createRadialGradient(x - r*0.2, y - r*0.25, r*0.1, x, y, r);
+        bodyG.addColorStop(0, '#f8ecd0');
+        bodyG.addColorStop(0.4, '#e8d8b8');
+        bodyG.addColorStop(0.7, '#d8c8a0');
+        bodyG.addColorStop(1, '#c0a878');
+        ctx.fillStyle = bodyG;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+
+        ctx.restore();
+
+        // Raised edge rim
+        ctx.strokeStyle = '#a08860'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(x, y, r - 1, 0, Math.PI*2); ctx.stroke();
+
+        // Inner ring (colored: red or dark)
+        const ringColor = isRed ? 'rgba(160,40,30,0.7)' : 'rgba(30,40,60,0.6)';
+        ctx.strokeStyle = ringColor; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x, y, r - 5, 0, Math.PI*2); ctx.stroke();
+
+        // Chinese character
+        const charColor = isRed ? '#8b1a1a' : '#1a1a2a';
+        ctx.fillStyle = charColor;
+        ctx.font = `bold ${r * 1.1}px 'KaiTi', 'STKaiti', 'SimSun', serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const name = this.pieceNames[piece] || piece;
+        ctx.fillText(name, x, y + 1);
     }
 
     drawPiece2D(x, y, piece) {
