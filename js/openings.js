@@ -113,7 +113,7 @@ moves:[
 {from:[9,1],to:[7,2],explanation:"Mã 8 tiến 7 - Khai triển mã trái"},
 {from:[0,1],to:[2,2],explanation:"Mã 2 tiến 3 - Hoàn thành bình phong mã"},
 {from:[6,6],to:[5,6],explanation:"Binh 3 tiến 1 - Tiến binh mở đường cho mã"},
-{from:[1,8],to:[1,3],explanation:"Xa 9 bình 4 - Hoành xa tuần hà phản công"}
+{from:[1,8],to:[1,3],explanation:"Xa 9 bình 4 - Hoành xa chuyển sang trung lộ phản công"}
 ]},
 
 {id:"tp_thp_ldx",category:"Pháo đầu đối Thuận pháo",name:"Thuận pháo lưỡng đầu xà",
@@ -405,7 +405,7 @@ moves:[
 {from:[0,2],to:[2,4],explanation:"Tượng 3 tiến 5 — Phi Tượng trung tâm phòng thủ"},
 {from:[9,0],to:[8,0],explanation:"Xe 9 tiến 1 — Nhấc Xe chuẩn bị chuyển cánh"},
 {from:[0,3],to:[1,4],explanation:"Sĩ 4 tiến 5 — Bổ Sĩ bảo vệ tướng"},
-{from:[8,0],to:[8,3],explanation:"Xe 9 bình 6 — Hoành xa tuần hà tấn công"},
+{from:[8,0],to:[8,3],explanation:"Xe 9 bình 6 — Hoành xa chiếm lộ tấn công"},
 {from:[0,0],to:[0,3],explanation:"Xe 1 bình 4 — Đen chuyển Xe giữ cánh phối hợp"}
 ]},
 
@@ -437,8 +437,8 @@ moves:[
 {from:[0,8],to:[1,8],explanation:"Xe 9 tiến 1 — Nhấc Xe chuẩn bị chuyển cánh"},
 {from:[9,0],to:[8,0],explanation:"Xe 9 tiến 1 — Xuất Xe cánh trái"},
 {from:[3,6],to:[4,6],explanation:"Tốt 7 tiến 1 — Tiến tốt mở đường cho mã"},
-{from:[8,0],to:[8,3],explanation:"Xe 9 bình 6 — Hoành xa tuần hà tấn công"},
-{from:[1,8],to:[1,5],explanation:"Xe 9 bình 6 — Hoành xa tuần hà phối hợp"}
+{from:[8,0],to:[8,3],explanation:"Xe 9 bình 6 — Hoành xa chiếm lộ tấn công"},
+{from:[1,8],to:[1,5],explanation:"Xe 9 bình 6 — Hoành xa chiếm lộ phối hợp"}
 ]},
 
 {id:"stc_sgp",category:"Sĩ tượng cục",name:"Sĩ giác pháo",
@@ -576,7 +576,7 @@ moves:[
 {from:[9,1],to:[7,2],explanation:"Mã 8 tiến 7 - Khai triển mã trái"},
 {from:[0,1],to:[2,2],explanation:"Mã 2 tiến 3 - Hoàn thành bình phong mã"},
 {from:[6,6],to:[5,6],explanation:"Binh 3 tiến 1 - Tiến binh mở đường cho mã"},
-{from:[1,8],to:[1,3],explanation:"Xa 9 bình 4 - Hoành xa tuần hà phản công"},
+{from:[1,8],to:[1,3],explanation:"Xa 9 bình 4 - Hoành xa chuyển sang trung lộ phản công"},
 {from:[9,7],to:[3,7],explanation:"Xa 2 tiến 6 - Quá hà xa! Xe vượt sông tấn công"},
 {from:[0,3],to:[1,4],explanation:"Sĩ 4 tiến 5 - Bổ sĩ bảo vệ tướng"},
 {from:[3,7],to:[3,6],explanation:"Xa 2 bình 3 - Xe chuyển cánh tấn công"},
