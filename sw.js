@@ -1,6 +1,6 @@
 // sw.js - Service Worker for offline support
 
-const CACHE_NAME = 'co-tuong-v9';
+const CACHE_NAME = 'co-tuong-v14';
 const ASSETS = [
     './',
     './index.html',

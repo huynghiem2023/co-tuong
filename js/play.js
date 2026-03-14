@@ -1,9 +1,10 @@
 // play.js - Play vs AI mode controller
 
 class PlayMode {
-    constructor(game, board) {
+    constructor(game, board, sound) {
         this.game = game;
         this.board = board;
+        this.sound = sound;
         this.active = false;
         this.playerIsRed = true;
         this.isPlayerTurn = true;
@@ -34,6 +35,7 @@ class PlayMode {
         document.getElementById('quiz-options').style.display = 'none';
 
         this.board.clearHighlights();
+        this.board.flipped = (window.app && window.app.autoFlip) ? !this.playerIsRed : false;
         this.board.onCellClick = (row, col) => this.handleCellClick(row, col);
         this.board.render(this.game.board);
 
@@ -58,6 +60,7 @@ class PlayMode {
         this.aiThinking = false;
         this.board.clearHighlights();
         this.board.hintCells = [];
+        this.board.flipped = false;
         document.getElementById('play-controls').style.display = 'none';
     }
 
@@ -73,6 +76,7 @@ class PlayMode {
                 if (!isMyPiece) return;
 
                 this.selectedPiece = { row, col };
+                if (this.sound) this.sound.playSelect();
                 this.legalMoves = XiangqiRules.getLegalMoves(this.game.board, row, col);
                 // Debug: show why moves are filtered
                 const rawMoves = XiangqiRules.generateRawMoves(this.game.board, row, col);
@@ -103,6 +107,7 @@ class PlayMode {
                     const isMyPiece = this.playerIsRed ? XiangqiRules.isRed(piece) : !XiangqiRules.isRed(piece);
                     if (isMyPiece) {
                         this.selectedPiece = { row, col };
+                        if (this.sound) this.sound.playSelect();
                         this.legalMoves = XiangqiRules.getLegalMoves(this.game.board, row, col);
                         this.board.selectedCell = [row, col];
                         this.board.hintCells = this.legalMoves;
@@ -114,6 +119,7 @@ class PlayMode {
                 const isLegal = this.legalMoves.some(m => m[0] === row && m[1] === col);
                 if (!isLegal) {
                     this.flashBoard('wrong');
+                    if (this.sound) this.sound.playInvalid();
                     this.updateStatus('❌ Nước đi không hợp lệ!');
                     setTimeout(() => {
                         if (this.active && this.isPlayerTurn) this.updateStatus('Đến lượt bạn!');
@@ -142,8 +148,11 @@ class PlayMode {
         const pieceName = this.getPieceFullName(movingPiece);
         const captureText = captured ? ` ăn ${this.getPieceFullName(captured)}` : '';
 
-        // Save board snapshot for async evaluation
-        const boardSnapshot = this.game.board.map(r => [...r]);
+        // Save board snapshot for deferred evaluation (will evaluate AFTER AI responds)
+        this._pendingEval = {
+            boardSnapshot: this.game.board.map(r => [...r]),
+            from, to, pieceName, captureText
+        };
 
         // Apply the move
         this.moveHistory.push({ from, to, piece: movingPiece, captured, side: 'player' });
@@ -153,6 +162,11 @@ class PlayMode {
 
         this.board.setHighlight(from, to);
         this.board.animateMove(this.game.board, from, to, movingPiece, () => {
+            // Play move or capture sound
+            if (this.sound) {
+                if (captured) this.sound.playCapture();
+                else this.sound.playMove();
+            }
             this.board.render(this.game.board);
             this.updateMoveCount();
 
@@ -160,26 +174,15 @@ class PlayMode {
             const opponentIsRed = !this.playerIsRed;
             if (this.checkGameEnd(opponentIsRed, true)) return;
 
-            // Show "thinking" status
+            // Play check sound if opponent is in check (non-checkmate)
+            if (this.sound && XiangqiRules.isInCheck(this.game.board, opponentIsRed)) {
+                this.sound.playCheck();
+            }
+
+            // Show "thinking" status and start AI immediately
             this.isPlayerTurn = false;
-
-            // Evaluate asynchronously + then AI moves
-            setTimeout(() => {
-                try {
-                    const commentary = this.evaluateMove(boardSnapshot, from, to, pieceName, captureText);
-                    this.lastPlayerCommentary = commentary;
-                    this.showPlayerCommentary(commentary);
-                } catch (e) {
-                    console.error('Evaluation error:', e);
-                    this.lastPlayerCommentary = null;
-                }
-
-                // AI moves after a short delay
-                setTimeout(() => {
-                    document.getElementById('play-status').textContent = '🤖 Máy đang suy nghĩ...';
-                    this.aiMove();
-                }, 600);
-            }, 50);
+            document.getElementById('play-status').textContent = '🤖 Máy đang suy nghĩ...';
+            setTimeout(() => this.aiMove(), 100);
         });
     }
 
@@ -196,6 +199,11 @@ class PlayMode {
 
         this.board.setHighlight(from, to);
         this.board.animateMove(this.game.board, from, to, movingPiece, () => {
+            // Play move or capture sound
+            if (this.sound) {
+                if (captured) this.sound.playCapture();
+                else this.sound.playMove();
+            }
             this.board.render(this.game.board);
             this.updateMoveCount();
 
@@ -204,15 +212,34 @@ class PlayMode {
 
             this.isPlayerTurn = true;
 
-            // Build combined explanation with both moves
+            // Build AI move text
             const aiMoveText = `🤖 Máy: ${aiPieceName}${aiCaptureText}`;
             let checkText = '';
             if (XiangqiRules.isInCheck(this.game.board, this.playerIsRed)) {
                 checkText = ' ⚡ Chiếu!';
+                if (this.sound) this.sound.playCheck();
             }
 
             document.getElementById('play-status').textContent = `Đến lượt bạn!${checkText}`;
-            this.showBothMoves(aiMoveText + checkText);
+
+            // NOW evaluate the player's previous move (deferred for better accuracy)
+            if (this._pendingEval) {
+                const ev = this._pendingEval;
+                this._pendingEval = null;
+                setTimeout(() => {
+                    try {
+                        const commentary = this.evaluateMove(ev.boardSnapshot, ev.from, ev.to, ev.pieceName, ev.captureText);
+                        this.lastPlayerCommentary = commentary;
+                        this.showBothMoves(aiMoveText + checkText);
+                    } catch (e) {
+                        console.error('Evaluation error:', e);
+                        this.lastPlayerCommentary = null;
+                        this.showBothMoves(aiMoveText + checkText);
+                    }
+                }, 50);
+            } else {
+                this.showBothMoves(aiMoveText + checkText);
+            }
         });
     }
 
@@ -223,6 +250,9 @@ class PlayMode {
                 const winner = wasPlayerMove ? 'Bạn' : 'Máy';
                 this.updateStatus(`🏆 ${winner} thắng! Chiếu hết!`);
                 this.flashBoard(wasPlayerMove ? 'correct' : 'wrong');
+                if (this.sound) {
+                    this.sound.playVictory(); // Always play dramatic checkmate sound
+                }
                 return true;
             }
             if (XiangqiRules.isStalemate(this.game.board, sideToMove)) {
@@ -421,16 +451,16 @@ class PlayMode {
 
         // Score after the player's move
         const boardAfterPlayer = XiangqiRules.makeMove(boardBefore, from[0], from[1], to[0], to[1]);
-        const playerResult = XiangqiAI.minimax(boardAfterPlayer, 4, -Infinity, Infinity, !playerIsRed, performance.now(), 1500, 4);
+        const playerResult = XiangqiAI.minimax(boardAfterPlayer, 6, -Infinity, Infinity, !playerIsRed, performance.now(), 3000, 6);
         const scoreAfterPlayer = playerResult.score;
 
         // Find the best move
-        const bestMove = XiangqiAI._getMinimaxMove(boardBefore, playerIsRed, 5, 2000);
+        const bestMove = XiangqiAI._getMinimaxMove(boardBefore, playerIsRed, 7, 3000);
 
         let scoreAfterBest = scoreAfterPlayer;
         if (bestMove) {
             const boardAfterBest = XiangqiRules.makeMove(boardBefore, bestMove.from[0], bestMove.from[1], bestMove.to[0], bestMove.to[1]);
-            const bestResult = XiangqiAI.minimax(boardAfterBest, 4, -Infinity, Infinity, !playerIsRed, performance.now(), 1500, 4);
+            const bestResult = XiangqiAI.minimax(boardAfterBest, 6, -Infinity, Infinity, !playerIsRed, performance.now(), 3000, 6);
             scoreAfterBest = bestResult.score;
         }
 
@@ -445,9 +475,31 @@ class PlayMode {
         // Tactical analysis
         const tactics = this.analyzeTactics(boardBefore, boardAfterPlayer, from, to, playerIsRed);
 
+        // Check if this is a losing capture exchange
+        const movingPiece = boardBefore[from[0]][from[1]];
+        const captured = boardBefore[to[0]][to[1]];
+        let exchangePenalty = 0; // 0 = no issue, negative = bad exchange
+        if (captured) {
+            const VALS = { 'K': 10000, 'A': 120, 'E': 120, 'R': 600, 'H': 270, 'C': 285, 'P': 30 };
+            const capVal = VALS[captured.toUpperCase()] || 0;
+            const movVal = VALS[movingPiece.toUpperCase()] || 0;
+            // Check if the moving piece can be recaptured
+            const enemyMoves = XiangqiRules.getAllLegalMoves(boardAfterPlayer, !playerIsRed);
+            const isRecapturable = enemyMoves.some(m => m.to[0] === to[0] && m.to[1] === to[1]);
+            if (isRecapturable && movVal > capVal) {
+                exchangePenalty = capVal - movVal; // e.g. 120 - 600 = -480
+            }
+        }
+
         let rating, emoji;
 
-        if (isBestMove) {
+        if (exchangePenalty < -200) {
+            // Terrible exchange (e.g. Rook for Advisor) — never rate as good
+            rating = 'Nước đi yếu'; emoji = '😬';
+        } else if (exchangePenalty < -50) {
+            // Bad exchange — cap at mediocre
+            rating = 'Tạm được'; emoji = '🤔';
+        } else if (isBestMove) {
             rating = 'Xuất sắc'; emoji = '🔥';
         } else if (playerDelta >= -20) {
             rating = 'Nước đi tốt'; emoji = '👍';
@@ -465,7 +517,7 @@ class PlayMode {
             detail = tactics.slice(0, 3).join(' ');
         } else {
             // Fallback generic text
-            if (isBestMove) detail = 'Đây là nước đi tốt nhất!';
+            if (isBestMove && exchangePenalty >= -50) detail = 'Đây là nước đi tốt nhất!';
             else if (playerDelta >= -20) detail = 'Nước đi gần như tối ưu.';
             else if (playerDelta >= -80) detail = 'Có nước đi tốt hơn.';
             else if (playerDelta >= -200) detail = 'Nước này mất lợi thế đáng kể.';
@@ -517,10 +569,10 @@ class PlayMode {
                 if (this._lastPlayerMove) {
                     const ponderResult = XiangqiAI.checkPonder(this._lastPlayerMove);
                     if (ponderResult) {
-                        // Ponder hit! Add small natural delay so it doesn't feel robotic
-                        console.log('⚡ Ponder hit! Responding in 300ms');
+                        // Ponder hit! Play almost instantly
+                        console.log('⚡ Ponder hit! Responding instantly');
                         this.updateStatus('⚡ Máy đáp tức thì!');
-                        await new Promise(r => setTimeout(r, 300));
+                        await new Promise(r => setTimeout(r, 100));
                         this.aiThinking = false;
                         this.executeAIMove(ponderResult.from, ponderResult.to);
                         return;
@@ -536,31 +588,16 @@ class PlayMode {
                     return;
                 }
                 if (allMoves.length === 1) {
-                    // Only one legal move — play it quickly
+                    // Only one legal move — play it instantly like a human would
                     console.log('🎯 Forced move — only 1 legal option');
-                    this.updateStatus('🎯 Nước đi bắt buộc!');
-                    await new Promise(r => setTimeout(r, 500));
+                    await new Promise(r => setTimeout(r, 150));
                     const forced = allMoves[0];
                     this.aiThinking = false;
                     this.executeAIMove(forced.from, forced.to);
                     return;
                 }
 
-                // 3. Check if in check — must respond quickly (shorter search)
-                const inCheck = XiangqiRules.isInCheck(this.game.board, aiIsRed);
-                if (inCheck && allMoves.length <= 3) {
-                    // Very few escape moves while in check — respond fast
-                    console.log('⚡ In check with few escapes — fast response');
-                    this.updateStatus('🤔 Máy đang giải chiếu...');
-                    const move = await XiangqiAI.getBestMove(this.game.board, aiIsRed, 8, 3000);
-                    if (move) {
-                        this.aiThinking = false;
-                        this.executeAIMove(move.from, move.to);
-                        return;
-                    }
-                }
-
-                // 4. Normal search — full strength
+                // 3. Full strength search (mate-in-1 pre-check is handled in getBestMove)
                 this.updateStatus('🤔 Máy đang suy nghĩ...');
                 const move = await XiangqiAI.getBestMove(this.game.board, aiIsRed, 20, 15000);
 
@@ -624,6 +661,7 @@ class PlayMode {
         if (!this.active || this.gameOver) return;
         this.gameOver = true;
         this.updateStatus('🏳️ Bạn đã đầu hàng! Máy thắng.');
+        if (this.sound) this.sound.playDefeat();
         this.flashBoard('wrong');
     }
 

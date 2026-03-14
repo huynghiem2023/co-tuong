@@ -66,6 +66,7 @@ class BoardRenderer {
         this.selectedCell = null;
         this.onCellClick = null;
         this.animating = false;
+        this.flipped = false;
         this.themeKey = 'classic';
         this.theme = BOARD_THEMES.classic;
         this._lastBoard = null;
@@ -132,6 +133,9 @@ class BoardRenderer {
     }
 
     getCanvasPos(row, col) {
+        if (this.flipped) {
+            return { x: this.padding + (8 - col) * this.cellSize, y: this.padding + (9 - row) * this.cellSize };
+        }
         return { x: this.padding + col * this.cellSize, y: this.padding + row * this.cellSize };
     }
 
@@ -141,8 +145,9 @@ class BoardRenderer {
         const scaleY = this.logicalHeight / rect.height;
         const x = (px - rect.left) * scaleX;
         const y = (py - rect.top) * scaleY;
-        const col = Math.round((x - this.padding) / this.cellSize);
-        const row = Math.round((y - this.padding) / this.cellSize);
+        let col = Math.round((x - this.padding) / this.cellSize);
+        let row = Math.round((y - this.padding) / this.cellSize);
+        if (this.flipped) { row = 9 - row; col = 8 - col; }
         if (row >= 0 && row <= 9 && col >= 0 && col <= 8) return { row, col };
         return null;
     }
@@ -321,8 +326,13 @@ class BoardRenderer {
         ctx.fillStyle = t.riverText;
         ctx.font = `italic bold ${cs * 0.42}px "KaiTi", "STKaiti", serif`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('楚  河', p + 2 * cs, p + 4.5 * cs);
-        ctx.fillText('漢  界', p + 6 * cs, p + 4.5 * cs);
+        if (this.flipped) {
+            ctx.fillText('漢  界', p + 2 * cs, p + 4.5 * cs);
+            ctx.fillText('楚  河', p + 6 * cs, p + 4.5 * cs);
+        } else {
+            ctx.fillText('楚  河', p + 2 * cs, p + 4.5 * cs);
+            ctx.fillText('漢  界', p + 6 * cs, p + 4.5 * cs);
+        }
         this.drawPositionMarkers();
     }
 

@@ -4,9 +4,11 @@ class App {
     constructor() {
         this.game = new Game();
         this.board = new BoardRenderer('game-board');
+        this.sound = new SoundManager();
         this.tutorial = new TutorialMode(this.game, this.board);
         this.quiz = new QuizMode(this.game, this.board);
-        this.play = new PlayMode(this.game, this.board);
+        this.play = new PlayMode(this.game, this.board, this.sound);
+        this.autoFlip = localStorage.getItem('cotuong_autoflip') !== 'false'; // default: true
         this.currentOpening = null;
         this.currentMode = 'tutorial';
         this.buildMenu();
@@ -15,6 +17,8 @@ class App {
         this.setupQuizButtons();
         this.setupPlayButtons();
         this.setupThemeSelector();
+        this.setupSoundToggle();
+        this.setupFlipToggle();
         this.board.render(this.game.board);
         // Auto-select first opening
         if (OPENINGS.length > 0) {
@@ -244,6 +248,52 @@ class App {
             this.board.setTheme(select.value);
             this.board.render(this.game.board);
         });
+    }
+
+    setupSoundToggle() {
+        const btn = document.getElementById('btn-sound-toggle');
+        if (!btn) return;
+        // Update initial icon
+        btn.textContent = this.sound.muted ? '🔇' : '🔊';
+        btn.addEventListener('click', () => {
+            const muted = this.sound.toggleMute();
+            btn.textContent = muted ? '🔇' : '🔊';
+        });
+        // Initialize AudioContext on first user interaction anywhere
+        const initAudio = () => {
+            this.sound.init();
+            document.removeEventListener('click', initAudio);
+            document.removeEventListener('touchstart', initAudio);
+        };
+        document.addEventListener('click', initAudio);
+        document.addEventListener('touchstart', initAudio);
+    }
+
+    setupFlipToggle() {
+        const btn = document.getElementById('btn-flip-toggle');
+        if (!btn) return;
+        // Update initial state
+        this._updateFlipBtn(btn);
+        btn.addEventListener('click', () => {
+            this.autoFlip = !this.autoFlip;
+            localStorage.setItem('cotuong_autoflip', this.autoFlip);
+            this._updateFlipBtn(btn);
+            // Apply immediately if in play mode
+            if (this.play.active) {
+                this.board.flipped = this.autoFlip ? !this.play.playerIsRed : false;
+                this.board.render(this.game.board);
+            }
+        });
+    }
+
+    _updateFlipBtn(btn) {
+        if (this.autoFlip) {
+            btn.style.opacity = '1';
+            btn.title = 'Tự động xoay bàn cờ: BẬT (click để tắt)';
+        } else {
+            btn.style.opacity = '0.5';
+            btn.title = 'Tự động xoay bàn cờ: TẮT (click để bật)';
+        }
     }
 
     closeMobileMenu() {

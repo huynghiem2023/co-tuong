@@ -20,6 +20,7 @@ class QuizMode {
         this.board.onCellClick = (row, col) => this.handleCellClick(row, col);
         this.game.loadOpening(opening);
         this.board.clearHighlights();
+        this.board.flipped = (this.playingAs === 'black');
         this.board.render(this.game.board);
         this.updateScoreUI();
         this.showQuizInfo('Hãy chọn quân cờ và đi nước đúng!');
@@ -39,6 +40,7 @@ class QuizMode {
         this.selectedPiece = null;
         this.waitingForInput = false;
         this.board.clearHighlights();
+        this.board.flipped = false;
         document.getElementById('quiz-controls').style.display = 'none';
         document.getElementById('tutorial-controls').style.display = 'flex';
     }

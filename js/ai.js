@@ -559,7 +559,7 @@ const XiangqiAI = {
         const inCheck = XiangqiRules.isInCheck(board, isRedTurn);
         if (depth >= 3 && !inCheck && maxD - depth > 0) {
             const R = 2; // reduction
-            const nullR = this.minimax(board, depth - 1 - R, isMax ? -beta : -alpha, isMax ? -(beta-1) : -(alpha+1), !isMax, startTime, timeLimit, maxD);
+            const nullR = this.minimax(board, depth - 1 - R, alpha, beta, !isMax, startTime, timeLimit, maxD);
             const nullScore = nullR.score;
             if (isMax && nullScore >= beta) return { score: beta };
             if (!isMax && nullScore <= alpha) return { score: alpha };
@@ -617,8 +617,25 @@ const XiangqiAI = {
         }
     },
 
+    // ========== Mate-in-1 Pre-check ==========
+    _checkMateIn1(board, isRedTurn) {
+        const moves = XiangqiRules.getAllLegalMoves(board, isRedTurn);
+        for (const m of moves) {
+            const nb = XiangqiRules.makeMove(board, m.from[0], m.from[1], m.to[0], m.to[1]);
+            if (XiangqiRules.isCheckmate(nb, !isRedTurn)) {
+                console.log(`🎯 MATE IN 1 FOUND: [${m.from}]→[${m.to}]`);
+                return m;
+            }
+        }
+        return null;
+    },
+
     // ========== Public API ==========
     async getBestMove(board, isRedTurn, depth = 20, timeLimitMs = 15000) {
+        // ALWAYS check for mate-in-1 first (instant, guaranteed)
+        const mateMove = this._checkMateIn1(board, isRedTurn);
+        if (mateMove) return mateMove;
+
         // Initialize Fairy-Stockfish on first call
         if (!this._engine && !this._engineFailed && !this._engineLoading) {
             this.initFairyStockfish();
@@ -752,11 +769,24 @@ const XiangqiAI = {
     _getMinimaxMove(board, isRedTurn, depth, timeLimitMs) {
         try {
             this._initZobrist(); this._initKillers(depth + 2); this._initHistory();
+            // Clear transposition table to prevent stale entries from corrupting results
+            this._ttable.clear();
             const st = performance.now(); let best = null;
             for (let d = 1; d <= depth; d++) {
                 const r = this.minimax(board, d, -Infinity, Infinity, isRedTurn, st, timeLimitMs, d);
-                if (r.move) { best = r; console.log(`AI depth ${d}: score=${r.score} time=${(performance.now()-st).toFixed(0)}ms`); }
-                if (performance.now() - st > timeLimitMs * 0.6) break;
+                const elapsed = performance.now() - st;
+                const timedOut = elapsed > timeLimitMs * 0.95;
+                if (r.move) {
+                    // Only update best if search completed or found a mate score
+                    const isMateScore = Math.abs(r.score) > 90000;
+                    if (!timedOut || isMateScore || !best) {
+                        best = r;
+                        console.log(`EVAL depth ${d}: score=${r.score} time=${elapsed.toFixed(0)}ms${timedOut ? ' (partial)' : ''}`);
+                    } else {
+                        console.log(`EVAL depth ${d}: DISCARDED (timed out, score=${r.score})`);
+                    }
+                }
+                if (elapsed > timeLimitMs * 0.6) break;
                 if (r.score > 90000 || r.score < -90000) break;
             }
             if (!best || !best.move) {
