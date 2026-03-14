@@ -430,7 +430,7 @@ class BoardRenderer {
         // Chinese character
         const charColor = isRed ? '#8b1a1a' : '#1a1a2a';
         ctx.fillStyle = charColor;
-        ctx.font = `bold ${r * 1.1}px 'KaiTi', 'STKaiti', 'SimSun', serif`;
+        ctx.font = `bold ${r * 1.3}px 'KaiTi', 'STKaiti', 'SimSun', serif`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         const name = this.pieceNames[piece] || piece;
         ctx.fillText(name, x, y + 1);
