@@ -400,7 +400,7 @@ class BoardRenderer {
     }
 
     drawPieceRoyal(x, y, piece) {
-        const ctx = this.ctx, r = this.pieceRadius, isRed = piece === piece.toUpperCase(), t = this.theme;
+        const ctx = this.ctx, r = this.pieceRadius * 1.15, isRed = piece === piece.toUpperCase(), t = this.theme;
         ctx.save();
 
         // Piece shadow
