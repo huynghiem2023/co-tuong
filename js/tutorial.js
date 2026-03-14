@@ -142,7 +142,18 @@ class TutorialMode {
             item.classList.toggle('active', i === this.game.currentStep);
         });
         const activeItem = document.querySelector('.move-item.active');
-        if (activeItem) activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        if (activeItem) {
+            const container = activeItem.closest('.move-list') || activeItem.parentElement;
+            if (container) {
+                const itemTop = activeItem.offsetTop - container.offsetTop;
+                const itemBottom = itemTop + activeItem.offsetHeight;
+                if (itemTop < container.scrollTop) {
+                    container.scrollTop = itemTop;
+                } else if (itemBottom > container.scrollTop + container.clientHeight) {
+                    container.scrollTop = itemBottom - container.clientHeight;
+                }
+            }
+        }
     }
 
     updateExplanation(text) {
