@@ -48,7 +48,7 @@ const XiangqiAI = {
                 await this._sendCmd('uci', 'uciok');
                 await this._sendCmd('setoption name UCI_Variant value xiangqi');
                 await this._sendCmd('setoption name Threads value 1');
-                await this._sendCmd('setoption name Hash value 128');
+                await this._sendCmd('setoption name Hash value 256');
                 await this._sendCmd('setoption name Skill Level value 20');
                 await this._sendCmd('isready', 'readyok');
 
@@ -618,7 +618,7 @@ const XiangqiAI = {
     },
 
     // ========== Public API ==========
-    async getBestMove(board, isRedTurn, depth = 12, timeLimitMs = 15000) {
+    async getBestMove(board, isRedTurn, depth = 20, timeLimitMs = 20000) {
         // Initialize Fairy-Stockfish on first call
         if (!this._engine && !this._engineFailed && !this._engineLoading) {
             this.initFairyStockfish();
@@ -686,8 +686,8 @@ const XiangqiAI = {
             console.log(`🐟 Pondering: if opponent plays [${ponderMove.from}]→[${ponderMove.to}]...`);
 
             // Search for our response (AI's turn after ponder)
-            const fairyDepth = 24;
-            const result = await this.requestFairyMove(boardAfterPonder, isRedTurn, fairyDepth, 12000);
+            const fairyDepth = 30;
+            const result = await this.requestFairyMove(boardAfterPonder, isRedTurn, fairyDepth, 15000);
             this._ponderSearching = false;
 
             if (result && result.move) {
@@ -716,7 +716,7 @@ const XiangqiAI = {
 
     async _getFairyMove(board, isRedTurn, depth, timeLimitMs) {
         try {
-            const fairyDepth = Math.min(depth + 16, 40);
+            const fairyDepth = Math.min(depth + 16, 50);
             const result = await this.requestFairyMove(board, isRedTurn, fairyDepth, timeLimitMs);
             if (result && result.move) {
                 const move = result.move;
