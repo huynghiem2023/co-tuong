@@ -74,6 +74,22 @@ class PlayMode {
 
                 this.selectedPiece = { row, col };
                 this.legalMoves = XiangqiRules.getLegalMoves(this.game.board, row, col);
+                // Debug: show why moves are filtered
+                const rawMoves = XiangqiRules.generateRawMoves(this.game.board, row, col);
+                console.log(`🔍 Selected ${piece} at [${row},${col}]`);
+                console.log(`   Raw moves: ${rawMoves.length}`, rawMoves);
+                console.log(`   Legal moves: ${this.legalMoves.length}`, this.legalMoves);
+                if (rawMoves.length > 0 && this.legalMoves.length === 0) {
+                    console.warn(`   ⚠️ All moves filtered! Checking why...`);
+                    for (const [tr, tc] of rawMoves) {
+                        const nb = XiangqiRules.makeMove(this.game.board, row, col, tr, tc);
+                        const inCheck = XiangqiRules.isInCheck(nb, this.playerIsRed);
+                        const facing = XiangqiRules.kingsAreFacing(nb);
+                        if (inCheck || facing) {
+                            console.warn(`   [${row},${col}]→[${tr},${tc}]: BLOCKED (check=${inCheck}, kingsFacing=${facing})`);
+                        }
+                    }
+                }
                 this.board.selectedCell = [row, col];
                 this.board.hintCells = this.legalMoves;
                 this.board.render(this.game.board);
@@ -117,6 +133,8 @@ class PlayMode {
 
     executePlayerMove(from, to) {
         this.clearSelection();
+        // Save for ponder check — AI can respond instantly if it predicted this move
+        this._lastPlayerMove = { from, to };
 
         // Save info for commentary BEFORE applying move
         const movingPiece = this.game.board[from[0]][from[1]];
@@ -218,27 +236,204 @@ class PlayMode {
         return false;
     }
 
-    // Lightweight evaluation: compare move scores without deep search
+    // Tactical analysis: explain WHY a move is good/bad
+    analyzeTactics(boardBefore, boardAfter, from, to, playerIsRed) {
+        const insights = [];
+        const movingPiece = boardBefore[from[0]][from[1]];
+        const captured = boardBefore[to[0]][to[1]];
+        const type = movingPiece.toUpperCase();
+        const VALS = { 'K': 10000, 'A': 120, 'E': 120, 'R': 600, 'H': 270, 'C': 285, 'P': 30 };
+        const NAMES = { 'K':'Tướng','A':'Sĩ','E':'Tượng','R':'Xe','H':'Mã','C':'Pháo','P':'Tốt' };
+
+        // 1. Capture analysis — exchange value
+        if (captured) {
+            const capType = captured.toUpperCase();
+            const capVal = VALS[capType] || 0;
+            const movVal = VALS[type] || 0;
+            // Check if the moving piece is under threat after capture
+            const enemyMoves = XiangqiRules.getAllLegalMoves(boardAfter, !playerIsRed);
+            const isRecapturable = enemyMoves.some(m => m.to[0] === to[0] && m.to[1] === to[1]);
+            if (!isRecapturable) {
+                insights.push(`Ăn ${NAMES[capType]} miễn phí (${capVal} điểm), đối phương không thể bắt lại.`);
+            } else if (capVal > movVal) {
+                insights.push(`Đổi ${NAMES[type]} (${movVal}) lấy ${NAMES[capType]} (${capVal}) — trao đổi có lợi!`);
+            } else if (capVal === movVal) {
+                insights.push(`Đổi ${NAMES[type]} ngang ${NAMES[capType]} — trao đổi cân bằng.`);
+            } else {
+                insights.push(`Dùng ${NAMES[type]} (${movVal}) ăn ${NAMES[capType]} (${capVal}) — trao đổi bất lợi, cẩn thận!`);
+            }
+        }
+
+        // 2. Check threat
+        if (XiangqiRules.isInCheck(boardAfter, !playerIsRed)) {
+            if (XiangqiRules.isCheckmate(boardAfter, !playerIsRed)) {
+                insights.push('⚡ Chiếu hết! Nước đi quyết định thắng lợi!');
+            } else {
+                insights.push('⚡ Chiếu tướng! Gây áp lực buộc đối phương phải giải chiếu.');
+            }
+        }
+
+        // 3. Double attack — piece threatens multiple enemy pieces after move
+        if (type === 'H' || type === 'C' || type === 'R') {
+            const myMovesAfter = XiangqiRules.generateRawMoves(boardAfter, to[0], to[1]);
+            const threatenedPieces = [];
+            for (const [mr, mc] of myMovesAfter) {
+                const target = boardAfter[mr][mc];
+                if (target && XiangqiRules.isRed(target) !== playerIsRed) {
+                    const tv = VALS[target.toUpperCase()] || 0;
+                    if (tv >= 120) threatenedPieces.push(NAMES[target.toUpperCase()]);
+                }
+            }
+            if (threatenedPieces.length >= 2) {
+                insights.push(`Tấn công kép! ${NAMES[type]} đồng thời đe dọa ${threatenedPieces.join(' và ')}.`);
+            } else if (threatenedPieces.length === 1 && !captured) {
+                insights.push(`${NAMES[type]} đe dọa ${threatenedPieces[0]} đối phương.`);
+            }
+        }
+
+        // 4. Central column control (col 4)
+        if ((type === 'R' || type === 'C') && to[1] === 4) {
+            const wasOnCenter = from[1] === 4;
+            if (!wasOnCenter) {
+                insights.push(`${NAMES[type]} chiếm trung lộ — khống chế cột giữa, kiểm soát thế trận.`);
+            }
+        }
+
+        // 5. River crossing (quá hà)
+        const riverCrossed = playerIsRed ? (to[0] <= 4 && from[0] >= 5) : (to[0] >= 5 && from[0] <= 4);
+        if (riverCrossed) {
+            if (type === 'R') {
+                insights.push('Xe quá hà — Xe vượt sông tấn công, khống chế hàng tốt đối phương.');
+            } else if (type === 'H') {
+                insights.push('Mã quá hà — Mã vượt sông, linh hoạt tấn công sâu vào trận địa đối phương.');
+            } else if (type === 'P') {
+                insights.push('Tốt quá hà — Tốt vượt sông, giờ có thể đi ngang và tăng sức mạnh.');
+            } else if (type === 'C') {
+                insights.push('Pháo quá hà — Pháo tiến sâu gây áp lực trực tiếp.');
+            }
+        }
+
+        // 6. King defense (sĩ/tượng moves)
+        if (type === 'A') {
+            const king = XiangqiRules.findKing(boardAfter, playerIsRed);
+            if (king) {
+                const dr = Math.abs(to[0] - king[0]), dc = Math.abs(to[1] - king[1]);
+                if (dr === 1 && dc === 1) {
+                    insights.push('Bổ Sĩ sát Tướng — tăng cường phòng thủ cung, bảo vệ Tướng trực tiếp.');
+                } else {
+                    insights.push('Di chuyển Sĩ — điều chỉnh phòng thủ cung.');
+                }
+            }
+        }
+        if (type === 'E') {
+            insights.push('Phi Tượng — mở rộng vùng phòng thủ, bảo vệ trận địa hậu phương.');
+        }
+
+        // 7. Piece development — leaving starting position
+        const startPositions = playerIsRed ? {
+            'R': [[9,0],[9,8]], 'H': [[9,1],[9,7]], 'C': [[7,1],[7,7]]
+        } : {
+            'R': [[0,0],[0,8]], 'H': [[0,1],[0,7]], 'C': [[2,1],[2,7]]
+        };
+        if (startPositions[type]) {
+            const wasAtStart = startPositions[type].some(p => p[0] === from[0] && p[1] === from[1]);
+            if (wasAtStart && !captured) {
+                insights.push(`Khai triển ${NAMES[type]} — xuất quân ra khỏi vị trí ban đầu, tham gia chiến đấu.`);
+            }
+        }
+
+        // 8. Mobility comparison
+        const myMovesBefore = XiangqiRules.getAllLegalMoves(boardBefore, playerIsRed);
+        const myMovesAfterAll = XiangqiRules.getAllLegalMoves(boardAfter, playerIsRed);
+        const enemyMovesBefore = XiangqiRules.getAllLegalMoves(boardBefore, !playerIsRed);
+        const enemyMovesAfter = XiangqiRules.getAllLegalMoves(boardAfter, !playerIsRed);
+        const myMobilityDelta = myMovesAfterAll.length - myMovesBefore.length;
+        const enemyMobilityDelta = enemyMovesAfter.length - enemyMovesBefore.length;
+        if (enemyMobilityDelta <= -8) {
+            insights.push('Hạn chế mạnh đối phương — giảm đáng kể số nước đi hợp lệ của đối phương.');
+        }
+        if (myMobilityDelta >= 8) {
+            insights.push('Mở rộng thế trận — tăng đáng kể số nước đi linh hoạt cho bên mình.');
+        }
+
+        // 9. King safety — exposed king warning
+        if (!captured && type !== 'A' && type !== 'E') {
+            const king = XiangqiRules.findKing(boardAfter, playerIsRed);
+            if (king) {
+                let advisorsNear = 0;
+                for (let r = king[0]-1; r <= king[0]+1; r++) {
+                    for (let c = king[1]-1; c <= king[1]+1; c++) {
+                        if (r >= 0 && r <= 9 && c >= 0 && c <= 8) {
+                            const p = boardAfter[r][c];
+                            if (p && p.toUpperCase() === 'A' && XiangqiRules.isRed(p) === playerIsRed) advisorsNear++;
+                        }
+                    }
+                }
+                if (advisorsNear === 0) {
+                    // Check if king was protected before
+                    let advisorsNearBefore = 0;
+                    const kingBefore = XiangqiRules.findKing(boardBefore, playerIsRed);
+                    if (kingBefore) {
+                        for (let r = kingBefore[0]-1; r <= kingBefore[0]+1; r++) {
+                            for (let c = kingBefore[1]-1; c <= kingBefore[1]+1; c++) {
+                                if (r >= 0 && r <= 9 && c >= 0 && c <= 8) {
+                                    const p = boardBefore[r][c];
+                                    if (p && p.toUpperCase() === 'A' && XiangqiRules.isRed(p) === playerIsRed) advisorsNearBefore++;
+                                }
+                            }
+                        }
+                    }
+                    if (advisorsNearBefore > 0) {
+                        insights.push('⚠️ Tướng mất bảo vệ Sĩ — cung trống, cẩn thận bị đe dọa!');
+                    }
+                }
+            }
+        }
+
+        // 10. Rook on open file
+        if (type === 'R') {
+            const col = to[1];
+            const hasFriendlyPawn = (() => {
+                for (let r = 0; r <= 9; r++) {
+                    const p = boardAfter[r][col];
+                    if (p && p.toUpperCase() === 'P' && XiangqiRules.isRed(p) === playerIsRed) return true;
+                }
+                return false;
+            })();
+            const hasEnemyPawn = (() => {
+                for (let r = 0; r <= 9; r++) {
+                    const p = boardAfter[r][col];
+                    if (p && p.toUpperCase() === 'P' && XiangqiRules.isRed(p) !== playerIsRed) return true;
+                }
+                return false;
+            })();
+            if (!hasFriendlyPawn && !hasEnemyPawn && !insights.some(i => i.includes('trung lộ'))) {
+                insights.push('Xe chiếm cột mở — không bị tốt chặn, tầm hoạt động rộng.');
+            }
+        }
+
+        return insights;
+    }
+
+    // Deeper evaluation: compare move scores + tactical analysis
     evaluateMove(boardBefore, from, to, pieceName, captureText) {
         const playerIsRed = this.playerIsRed;
 
-        // Score before the move
-        const scoreBefore = XiangqiAI.evaluate(boardBefore);
-
         // Score after the player's move
         const boardAfterPlayer = XiangqiRules.makeMove(boardBefore, from[0], from[1], to[0], to[1]);
-        const scoreAfterPlayer = XiangqiAI.evaluate(boardAfterPlayer);
+        const playerResult = XiangqiAI.minimax(boardAfterPlayer, 4, -Infinity, Infinity, !playerIsRed, performance.now(), 1500, 4);
+        const scoreAfterPlayer = playerResult.score;
 
-        // Quick search: find the best move with depth 2 only (much faster)
-        const bestMove = XiangqiAI.getBestMove(boardBefore, playerIsRed, 2, 800);
+        // Find the best move
+        const bestMove = XiangqiAI._getMinimaxMove(boardBefore, playerIsRed, 5, 2000);
 
         let scoreAfterBest = scoreAfterPlayer;
         if (bestMove) {
             const boardAfterBest = XiangqiRules.makeMove(boardBefore, bestMove.from[0], bestMove.from[1], bestMove.to[0], bestMove.to[1]);
-            scoreAfterBest = XiangqiAI.evaluate(boardAfterBest);
+            const bestResult = XiangqiAI.minimax(boardAfterBest, 4, -Infinity, Infinity, !playerIsRed, performance.now(), 1500, 4);
+            scoreAfterBest = bestResult.score;
         }
 
-        // Delta from player's perspective
         const playerDelta = playerIsRed
             ? (scoreAfterPlayer - scoreAfterBest)
             : (scoreAfterBest - scoreAfterPlayer);
@@ -247,23 +442,34 @@ class PlayMode {
             from[0] === bestMove.from[0] && from[1] === bestMove.from[1] &&
             to[0] === bestMove.to[0] && to[1] === bestMove.to[1];
 
-        let rating, emoji, detail;
+        // Tactical analysis
+        const tactics = this.analyzeTactics(boardBefore, boardAfterPlayer, from, to, playerIsRed);
+
+        let rating, emoji;
 
         if (isBestMove) {
             rating = 'Xuất sắc'; emoji = '🔥';
-            detail = 'Đây là nước đi tốt nhất!';
         } else if (playerDelta >= -20) {
             rating = 'Nước đi tốt'; emoji = '👍';
-            detail = 'Nước đi gần như tối ưu.';
         } else if (playerDelta >= -80) {
             rating = 'Tạm được'; emoji = '🤔';
-            detail = 'Có nước đi tốt hơn.';
         } else if (playerDelta >= -200) {
             rating = 'Nước đi yếu'; emoji = '😬';
-            detail = 'Nước này mất lợi thế đáng kể.';
         } else {
             rating = 'Sai lầm!'; emoji = '💀';
-            detail = 'Nước đi rất tệ, mất lợi thế lớn!';
+        }
+
+        // Build detail from tactical insights
+        let detail;
+        if (tactics.length > 0) {
+            detail = tactics.slice(0, 3).join(' ');
+        } else {
+            // Fallback generic text
+            if (isBestMove) detail = 'Đây là nước đi tốt nhất!';
+            else if (playerDelta >= -20) detail = 'Nước đi gần như tối ưu.';
+            else if (playerDelta >= -80) detail = 'Có nước đi tốt hơn.';
+            else if (playerDelta >= -200) detail = 'Nước này mất lợi thế đáng kể.';
+            else detail = 'Nước đi rất tệ, mất lợi thế lớn!';
         }
 
         return { emoji, rating, detail, pieceName, captureText };
@@ -303,10 +509,60 @@ class PlayMode {
         if (!this.active || this.gameOver) return;
         this.aiThinking = true;
 
-        setTimeout(() => {
+        setTimeout(async () => {
             try {
                 const aiIsRed = !this.playerIsRed;
-                const move = XiangqiAI.getBestMove(this.game.board, aiIsRed, 3, 2000);
+
+                // 1. Check ponder hit — AI already pre-computed the response
+                if (this._lastPlayerMove) {
+                    const ponderResult = XiangqiAI.checkPonder(this._lastPlayerMove);
+                    if (ponderResult) {
+                        // Ponder hit! Add small natural delay so it doesn't feel robotic
+                        console.log('⚡ Ponder hit! Responding in 300ms');
+                        this.updateStatus('⚡ Máy đáp tức thì!');
+                        await new Promise(r => setTimeout(r, 300));
+                        this.aiThinking = false;
+                        this.executeAIMove(ponderResult.from, ponderResult.to);
+                        return;
+                    }
+                }
+
+                // 2. Check forced move — only 1 legal move available
+                const allMoves = XiangqiRules.getAllLegalMoves(this.game.board, aiIsRed);
+                if (allMoves.length === 0) {
+                    this.gameOver = true;
+                    this.updateStatus('🏆 Bạn thắng! Máy hết nước đi!');
+                    this.aiThinking = false;
+                    return;
+                }
+                if (allMoves.length === 1) {
+                    // Only one legal move — play it quickly
+                    console.log('🎯 Forced move — only 1 legal option');
+                    this.updateStatus('🎯 Nước đi bắt buộc!');
+                    await new Promise(r => setTimeout(r, 500));
+                    const forced = allMoves[0];
+                    this.aiThinking = false;
+                    this.executeAIMove(forced.from, forced.to);
+                    return;
+                }
+
+                // 3. Check if in check — must respond quickly (shorter search)
+                const inCheck = XiangqiRules.isInCheck(this.game.board, aiIsRed);
+                if (inCheck && allMoves.length <= 3) {
+                    // Very few escape moves while in check — respond fast
+                    console.log('⚡ In check with few escapes — fast response');
+                    this.updateStatus('🤔 Máy đang giải chiếu...');
+                    const move = await XiangqiAI.getBestMove(this.game.board, aiIsRed, 8, 3000);
+                    if (move) {
+                        this.aiThinking = false;
+                        this.executeAIMove(move.from, move.to);
+                        return;
+                    }
+                }
+
+                // 4. Normal search — full strength
+                this.updateStatus('🤔 Máy đang suy nghĩ...');
+                const move = await XiangqiAI.getBestMove(this.game.board, aiIsRed, 12, 15000);
 
                 if (!move) {
                     this.gameOver = true;
@@ -339,7 +595,8 @@ class PlayMode {
         try {
             this.updateStatus('💡 Đang tìm nước gợi ý...');
             setTimeout(() => {
-                const bestMove = XiangqiAI.getBestMove(this.game.board, this.playerIsRed, 2, 800);
+                // Use minimax directly (synchronous, fast) instead of async getBestMove
+                const bestMove = XiangqiAI._getMinimaxMove(this.game.board, this.playerIsRed, 5, 3000);
                 if (!bestMove) {
                     this.updateStatus('Không tìm thấy gợi ý!');
                     return;

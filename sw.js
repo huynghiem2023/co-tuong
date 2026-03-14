@@ -1,6 +1,6 @@
 // sw.js - Service Worker for offline support
 
-const CACHE_NAME = 'co-tuong-v1';
+const CACHE_NAME = 'co-tuong-v9';
 const ASSETS = [
     './',
     './index.html',
@@ -14,6 +14,9 @@ const ASSETS = [
     './js/quiz.js',
     './js/play.js',
     './js/app.js',
+    './js/engine/stockfish.js',
+    './js/engine/stockfish.wasm',
+    './js/engine/stockfish.worker.js',
     './assets/wood_texture.png',
     './assets/piece_K.png',
     './assets/piece_A.png',
@@ -49,25 +52,27 @@ self.addEventListener('activate', event => {
     self.clients.claim();
 });
 
-// Fetch: serve from cache first, fallback to network
+// Fetch: network-first strategy (preserves COOP/COEP headers for SharedArrayBuffer)
 self.addEventListener('fetch', event => {
     event.respondWith(
-        caches.match(event.request).then(cached => {
-            return cached || fetch(event.request).then(response => {
-                // Cache new resources dynamically
-                if (response.status === 200) {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then(cache => {
-                        cache.put(event.request, clone);
-                    });
-                }
-                return response;
-            });
-        }).catch(() => {
-            // Offline fallback
-            if (event.request.mode === 'navigate') {
-                return caches.match('./index.html');
+        fetch(event.request).then(response => {
+            // Cache successful responses for offline use
+            if (response.status === 200) {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then(cache => {
+                    cache.put(event.request, clone);
+                });
             }
+            return response;
+        }).catch(() => {
+            // Network failed — serve from cache (offline mode)
+            return caches.match(event.request).then(cached => {
+                if (cached) return cached;
+                // Offline fallback for navigation
+                if (event.request.mode === 'navigate') {
+                    return caches.match('./index.html');
+                }
+            });
         })
     );
 });

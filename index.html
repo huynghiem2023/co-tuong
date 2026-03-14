@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="description" content="Ứng dụng huấn luyện khai cuộc Cờ Tướng - Học và luyện tập 30 thế trận khai cuộc phổ biến nhất">
     <meta name="theme-color" content="#f0c040">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Cờ Tướng">
     <link rel="apple-touch-icon" href="assets/icon-192.png">
     <link rel="manifest" href="manifest.json">
     <title>Cờ Tướng - Huấn Luyện Khai Cuộc</title>
-    <link rel="stylesheet" href="css/style.css?v=10">
+    <link rel="stylesheet" href="css/style.css?v=18">
 </head>
 <body>
     <div class="overlay" id="overlay"></div>
@@ -91,6 +91,13 @@
                                 <button class="quiz-btn secondary" id="quiz-black">⚫ Đi Hậu (Đen)</button>
                             </div>
                         </div>
+                        <div id="play-options" style="display:none">
+                            <p>Chọn bên bạn muốn chơi:</p>
+                            <div class="quiz-side-btns">
+                                <button class="quiz-btn primary" id="play-red">🔴 Đi Tiên (Đỏ)</button>
+                                <button class="quiz-btn secondary" id="play-black">⚫ Đi Hậu (Đen)</button>
+                            </div>
+                        </div>
                         <div class="controls-row" id="play-controls" style="display:none">
                             <span id="play-status" class="play-status">Sẵn sàng...</span>
                             <span id="play-move-count" class="play-move-count">Nước đi: 0</span>
@@ -112,15 +119,15 @@
         </div>
     </div>
 
-    <script src="js/game.js?v=10"></script>
-    <script src="js/board.js?v=10"></script>
-    <script src="js/rules.js?v=10"></script>
-    <script src="js/ai.js?v=10"></script>
-    <script src="js/openings.js?v=10"></script>
-    <script src="js/tutorial.js?v=10"></script>
-    <script src="js/quiz.js?v=10"></script>
-    <script src="js/play.js?v=10"></script>
-    <script src="js/app.js?v=10"></script>
+    <script src="js/game.js?v=18"></script>
+    <script src="js/board.js?v=18"></script>
+    <script src="js/rules.js?v=18"></script>
+    <script src="js/ai.js?v=18"></script>
+    <script src="js/openings.js?v=18"></script>
+    <script src="js/tutorial.js?v=18"></script>
+    <script src="js/quiz.js?v=18"></script>
+    <script src="js/play.js?v=18"></script>
+    <script src="js/app.js?v=18"></script>
     <script>
         // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {

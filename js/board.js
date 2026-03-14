@@ -272,21 +272,35 @@ class BoardRenderer {
 
     // ==================== HIGHLIGHTS ====================
     drawHighlights() {
-        const ctx = this.ctx, cs = this.cellSize;
+        const ctx = this.ctx, cs = this.cellSize, cornerLen = cs * 0.28;
+        // Draw corner brackets for a cell
+        const drawCorners = (p, color, lineW) => {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineW;
+            ctx.lineCap = 'round';
+            const half = cs / 2 - 2;
+            // Top-left
+            ctx.beginPath(); ctx.moveTo(p.x - half, p.y - half + cornerLen); ctx.lineTo(p.x - half, p.y - half); ctx.lineTo(p.x - half + cornerLen, p.y - half); ctx.stroke();
+            // Top-right
+            ctx.beginPath(); ctx.moveTo(p.x + half - cornerLen, p.y - half); ctx.lineTo(p.x + half, p.y - half); ctx.lineTo(p.x + half, p.y - half + cornerLen); ctx.stroke();
+            // Bottom-left
+            ctx.beginPath(); ctx.moveTo(p.x - half, p.y + half - cornerLen); ctx.lineTo(p.x - half, p.y + half); ctx.lineTo(p.x - half + cornerLen, p.y + half); ctx.stroke();
+            // Bottom-right
+            ctx.beginPath(); ctx.moveTo(p.x + half - cornerLen, p.y + half); ctx.lineTo(p.x + half, p.y + half); ctx.lineTo(p.x + half, p.y + half - cornerLen); ctx.stroke();
+            ctx.lineCap = 'butt';
+        };
+
         if (this.highlightFrom) {
             const p = this.getCanvasPos(this.highlightFrom[0], this.highlightFrom[1]);
-            ctx.fillStyle = 'rgba(255,200,0,0.3)';
-            ctx.fillRect(p.x - cs/2, p.y - cs/2, cs, cs);
+            drawCorners(p, 'rgba(200,170,50,0.6)', 2);
         }
         if (this.highlightTo) {
             const p = this.getCanvasPos(this.highlightTo[0], this.highlightTo[1]);
-            ctx.fillStyle = 'rgba(255,200,0,0.45)';
-            ctx.fillRect(p.x - cs/2, p.y - cs/2, cs, cs);
+            drawCorners(p, 'rgba(220,180,30,0.9)', 2.5);
         }
         if (this.selectedCell) {
             const p = this.getCanvasPos(this.selectedCell[0], this.selectedCell[1]);
-            ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 3;
-            ctx.strokeRect(p.x - cs/2 + 2, p.y - cs/2 + 2, cs - 4, cs - 4);
+            drawCorners(p, '#00ff88', 3);
         }
         for (const cell of this.hintCells) {
             const p = this.getCanvasPos(cell[0], cell[1]);
@@ -351,19 +365,19 @@ class BoardRenderer {
             ctx.drawImage(img, x - imgSize/2, y - imgSize/2, imgSize, imgSize);
             // Color tint overlay to distinguish Red vs Black
             if (!isRed) {
-                // Dark cool tint for Black pieces
-                ctx.fillStyle = 'rgba(30, 50, 80, 0.35)';
+                // Light cool tint for Black pieces — preserves wood grain
+                ctx.fillStyle = 'rgba(20, 40, 70, 0.22)';
                 ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
             } else {
-                // Warm subtle tint for Red pieces
-                ctx.fillStyle = 'rgba(180, 40, 20, 0.12)';
+                // Very subtle warm tint for Red pieces
+                ctx.fillStyle = 'rgba(200, 50, 20, 0.08)';
                 ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
             }
             ctx.restore();
             // Colored ring border to clearly identify side
             ctx.beginPath(); ctx.arc(x, y, r - 1, 0, Math.PI * 2);
-            ctx.strokeStyle = isRed ? 'rgba(220, 40, 30, 0.7)' : 'rgba(50, 70, 100, 0.7)';
-            ctx.lineWidth = 2.5; ctx.stroke();
+            ctx.strokeStyle = isRed ? 'rgba(180, 50, 20, 0.6)' : 'rgba(40, 60, 90, 0.5)';
+            ctx.lineWidth = 2; ctx.stroke();
         } else {
             // Fallback gradient when no image available
             ctx.save();

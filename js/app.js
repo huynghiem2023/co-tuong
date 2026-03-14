@@ -37,7 +37,8 @@ class App {
             'Tiên nhân chỉ lộ': '👤',
             'Khởi mã cục': '🐴',
             'Sĩ tượng cục': '🏯',
-            'Thế trận đặc biệt': '⭐'
+            'Thế trận đặc biệt': '⭐',
+            'Quá cung pháo': '💥'
         };
 
         for (const [cat, openings] of Object.entries(categories)) {
@@ -125,6 +126,7 @@ class App {
             document.getElementById('quiz-controls').style.display = 'none';
             document.getElementById('tutorial-controls').style.display = 'flex';
             document.getElementById('quiz-options').style.display = 'none';
+            document.getElementById('play-options').style.display = 'none';
             document.getElementById('play-controls').style.display = 'none';
             this.play.deactivate();
             if (this.currentOpening) this.selectOpening(this.currentOpening);
@@ -135,6 +137,7 @@ class App {
             document.getElementById('mode-tutorial').classList.remove('active');
             document.getElementById('tutorial-controls').style.display = 'none';
             document.getElementById('quiz-options').style.display = 'flex';
+            document.getElementById('play-options').style.display = 'none';
             document.getElementById('play-controls').style.display = 'none';
             this.play.deactivate();
             if (this.currentOpening) this.showQuizOptions();
@@ -169,6 +172,7 @@ class App {
         document.getElementById('tutorial-controls').style.display = 'none';
         document.getElementById('quiz-controls').style.display = 'none';
         document.getElementById('quiz-options').style.display = 'none';
+        document.getElementById('play-options').style.display = 'none';
         
         this.tutorial.deactivate();
         this.quiz.deactivate();
@@ -186,7 +190,22 @@ class App {
 
     setupPlayButtons() {
         document.getElementById('btn-play-ai').addEventListener('click', () => {
+            if (this.currentOpening) {
+                // Show side selection instead of directly starting
+                document.getElementById('tutorial-controls').style.display = 'none';
+                document.getElementById('quiz-controls').style.display = 'none';
+                document.getElementById('quiz-options').style.display = 'none';
+                document.getElementById('play-controls').style.display = 'none';
+                document.getElementById('play-options').style.display = 'flex';
+            }
+        });
+        document.getElementById('play-red').addEventListener('click', () => {
+            document.getElementById('play-options').style.display = 'none';
             if (this.currentOpening) this.startPlayAI('red');
+        });
+        document.getElementById('play-black').addEventListener('click', () => {
+            document.getElementById('play-options').style.display = 'none';
+            if (this.currentOpening) this.startPlayAI('black');
         });
         document.getElementById('btn-play-hint').addEventListener('click', () => {
             this.play.showHint();
@@ -204,6 +223,7 @@ class App {
                 document.getElementById('mode-tutorial').classList.add('active');
                 document.getElementById('mode-quiz').classList.remove('active');
                 document.getElementById('play-controls').style.display = 'none';
+                document.getElementById('play-options').style.display = 'none';
                 document.getElementById('tutorial-controls').style.display = 'flex';
                 this.play.deactivate();
             }
