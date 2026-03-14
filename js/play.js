@@ -562,7 +562,7 @@ class PlayMode {
 
                 // 4. Normal search — full strength
                 this.updateStatus('🤔 Máy đang suy nghĩ...');
-                const move = await XiangqiAI.getBestMove(this.game.board, aiIsRed, 20, 20000);
+                const move = await XiangqiAI.getBestMove(this.game.board, aiIsRed, 20, 15000);
 
                 if (!move) {
                     this.gameOver = true;

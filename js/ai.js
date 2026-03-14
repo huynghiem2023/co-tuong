@@ -618,7 +618,7 @@ const XiangqiAI = {
     },
 
     // ========== Public API ==========
-    async getBestMove(board, isRedTurn, depth = 20, timeLimitMs = 20000) {
+    async getBestMove(board, isRedTurn, depth = 20, timeLimitMs = 15000) {
         // Initialize Fairy-Stockfish on first call
         if (!this._engine && !this._engineFailed && !this._engineLoading) {
             this.initFairyStockfish();
