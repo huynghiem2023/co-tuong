@@ -39,8 +39,20 @@ class PlayMode {
         this.board.onCellClick = (row, col) => this.handleCellClick(row, col);
         this.board.render(this.game.board);
 
-        this.updateStatus('Đến lượt bạn! Chọn quân để đi.');
+        this.updateStatus('🧠 Xin bạn chờ 15 giây để máy bơm máu lên não nhé...');
         this.updateMoveCount();
+
+        // Check engine status after a delay
+        setTimeout(() => {
+            if (this.gameOver || !this.active) return;
+            if (XiangqiAI._engineReady) {
+                this.updateStatus('✅ Fairy-Stockfish sẵn sàng! Đến lượt bạn.');
+            } else if (XiangqiAI._engineFailed) {
+                this.updateStatus('🤖 AI nội bộ sẵn sàng! Đến lượt bạn.');
+            } else {
+                this.updateStatus('⏳ Đang tải engine... Đến lượt bạn.');
+            }
+        }, 8000);
 
         // Determine whose turn based on the current board state
         const openingMoveCount = this.game.currentStep + 1;
