@@ -46,11 +46,11 @@ class PlayMode {
         setTimeout(() => {
             if (this.gameOver || !this.active) return;
             if (XiangqiAI._engineReady) {
-                this.updateStatus('✅ Fairy-Stockfish sẵn sàng! Đến lượt bạn.');
+                this.updateStatus('✅ Máy đã sẵn sàng! Đến lượt bạn.');
             } else if (XiangqiAI._engineFailed) {
-                this.updateStatus('🤖 AI nội bộ sẵn sàng! Đến lượt bạn.');
+                this.updateStatus('🤖 Đến lượt bạn! Chọn quân để đi.');
             } else {
-                this.updateStatus('⏳ Đang tải engine... Đến lượt bạn.');
+                this.updateStatus('♟️ Bạn cứ đi trước, máy đang khởi động...');
             }
         }, 3000);
 
