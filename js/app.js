@@ -166,6 +166,8 @@ class App {
 
     startPlayAI(side) {
         if (!this.currentOpening) return;
+        // Pre-load Fairy-Stockfish engine while player is making first move
+        XiangqiAI.initFairyStockfish();
         // First go to end of opening
         this.game.goToEnd();
         this.board.render(this.game.board);
