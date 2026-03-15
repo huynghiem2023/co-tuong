@@ -52,7 +52,7 @@ class PlayMode {
             } else {
                 this.updateStatus('⏳ Đang tải engine... Đến lượt bạn.');
             }
-        }, 8000);
+        }, 3000);
 
         // Determine whose turn based on the current board state
         const openingMoveCount = this.game.currentStep + 1;
