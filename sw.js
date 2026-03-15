@@ -1,7 +1,7 @@
 // sw.js - Service Worker for offline support + SharedArrayBuffer headers
 // Injects COOP/COEP headers so Fairy-Stockfish WASM works on GitHub Pages
 
-const CACHE_NAME = 'co-tuong-v22';
+const CACHE_NAME = 'co-tuong-v23';
 const ASSETS = [
     './',
     './index.html',
@@ -28,8 +28,22 @@ const ASSETS = [
     './assets/piece_C.png',
     './assets/piece_P.png',
     './assets/icon-192.png',
-    './assets/icon-512.png'
+    './assets/icon-512.png',
+    './assets/music/01.mp3',
+    './assets/music/02.mp3',
+    './assets/music/03.mp3',
+    './assets/music/04.mp3',
+    './assets/music/05.mp3',
+    './assets/music/06.mp3',
+    './assets/music/07.mp3',
+    './assets/music/08.mp3',
+    './assets/music/09.mp3',
+    './assets/music/10.mp3'
 ];
+
+// File extensions that should NOT have COEP headers injected
+// (media files need range request support for streaming)
+const MEDIA_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.mp4', '.webm'];
 
 // Install: cache all assets
 self.addEventListener('install', event => {
@@ -72,6 +86,10 @@ self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
     const isSameOrigin = url.origin === self.location.origin;
 
+    // Don't inject COEP headers on media files — they need range request
+    // support for HTML5 Audio/Video streaming to work properly
+    const isMedia = MEDIA_EXTENSIONS.some(ext => url.pathname.toLowerCase().endsWith(ext));
+
     event.respondWith(
         fetch(event.request).then(response => {
             // Cache successful responses for offline use
@@ -80,6 +98,10 @@ self.addEventListener('fetch', event => {
                 caches.open(CACHE_NAME).then(cache => {
                     cache.put(event.request, clone);
                 });
+            }
+            // Skip header injection for media files
+            if (isMedia) {
+                return response;
             }
             // Inject COOP/COEP headers for same-origin responses
             if (isSameOrigin) {
@@ -90,6 +112,10 @@ self.addEventListener('fetch', event => {
             // Network failed — serve from cache (offline mode)
             return caches.match(event.request).then(cached => {
                 if (cached) {
+                    // Skip header injection for media files
+                    if (isMedia) {
+                        return cached;
+                    }
                     // Also inject headers on cached responses
                     if (isSameOrigin) {
                         return addCrossOriginHeaders(cached);

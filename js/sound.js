@@ -7,19 +7,49 @@ class SoundManager {
         this.bgMusicPlaying = false;
         this.bgNodes = null;
         this.initialized = false;
+        // Create a persistent Audio element for background music
+        // Mobile browsers require the SAME element to be unlocked via user gesture
+        this._bgAudio = null;
     }
 
     // Must be called from a user gesture (click/touch) to unlock AudioContext
     init() {
-        if (this.initialized) return;
+        // Allow retry if audio unlock failed on mobile
+        if (this.initialized && this._audioUnlocked) return;
         try {
             this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
             this.initialized = true;
-            // Retry pending audio that was blocked by autoplay policy
-            if (this._pendingAudio && !this.muted) {
-                this._pendingAudio.play().catch(() => {});
-                this._pendingAudio = null;
-            } else if (!this.muted) {
+
+            // Create & unlock the persistent Audio element RIGHT HERE in the gesture handler
+            // This is critical for mobile: the element must be played in a user gesture
+            if (!this._bgAudio) {
+                this._bgAudio = new Audio();
+                this._bgAudio.crossOrigin = 'anonymous';
+                this._bgAudio.volume = 0;
+                this._bgAudio.preload = 'auto';
+                // Play (even silence) to unlock the element on mobile
+                // Using a data URI of a tiny silent WAV to avoid network requests
+                this._bgAudio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+                const unlockPromise = this._bgAudio.play();
+                if (unlockPromise) {
+                    unlockPromise.then(() => {
+                        this._bgAudio.pause();
+                        this._bgAudio.currentTime = 0;
+                        this._audioUnlocked = true;
+                        console.log('🎵 Audio unlocked for mobile playback');
+                        if (!this.muted) {
+                            this.startBackgroundMusic();
+                        }
+                    }).catch(e => {
+                        console.warn('🎵 Audio unlock failed, will retry:', e);
+                        this._audioUnlocked = false;
+                        // Will retry on next user gesture
+                    });
+                }
+            } else if (!this.muted && !this.bgMusicPlaying) {
                 this.startBackgroundMusic();
             }
         } catch (e) {
@@ -50,8 +80,9 @@ class SoundManager {
         if (this.muted) {
             this.stopBackgroundMusic();
         } else {
-            this.init();
-            if (this.initialized && !this.bgMusicPlaying) {
+            if (!this.initialized) {
+                this.init();
+            } else if (!this.bgMusicPlaying) {
                 this.startBackgroundMusic();
             }
         }
@@ -107,25 +138,38 @@ class SoundManager {
 
         console.log(`🎵 Now playing: ${track.name}`);
 
-        // Create new Audio element
-        const audio = new Audio(track.file);
-        audio.volume = 0.3;
+        // Reuse the persistent Audio element (already unlocked on mobile)
+        const audio = this._bgAudio;
+        if (!audio) {
+            // Fallback: create new Audio if init wasn't called yet
+            this._bgAudio = new Audio();
+            this._bgAudio.crossOrigin = 'anonymous';
+            return this._playNextTrack();
+        }
+
+        // Remove old event listeners
+        audio.onended = null;
+        audio.onerror = null;
+
+        // Set new source
+        audio.src = track.file;
         audio.preload = 'auto';
 
         // When song ends, play next
-        audio.addEventListener('ended', () => {
+        audio.onended = () => {
             this._playNextTrack();
-        });
+        };
 
         // Handle load errors gracefully — skip to next
-        audio.addEventListener('error', (e) => {
+        audio.onerror = (e) => {
             console.warn(`🎵 Error loading ${track.name}:`, e);
             setTimeout(() => this._playNextTrack(), 500);
-        });
+        };
 
         // Fade in
         audio.volume = 0;
         audio.play().then(() => {
+            console.log(`🎵 Playing successfully: ${track.name}`);
             // Smooth fade in over 2 seconds
             let vol = 0;
             const fadeIn = setInterval(() => {
@@ -134,20 +178,19 @@ class SoundManager {
                     vol = 0.3;
                     clearInterval(fadeIn);
                 }
-                audio.volume = vol;
+                try { audio.volume = vol; } catch (_) {}
             }, 100);
         }).catch(e => {
-            console.warn('🎵 Autoplay blocked, will retry on interaction:', e);
-            // Store for retry on user interaction
-            this._pendingAudio = audio;
+            console.warn('🎵 Autoplay blocked:', e);
+            // On mobile, mark for retry — next user tap will re-trigger init()
+            this.bgMusicPlaying = false;
+            this._audioUnlocked = false;
         });
-
-        this._bgAudio = audio;
     }
 
     stopBackgroundMusic() {
         this.bgMusicPlaying = false;
-        if (this._bgAudio) {
+        if (this._bgAudio && !this._bgAudio.paused) {
             // Fade out over 1 second
             const audio = this._bgAudio;
             let vol = audio.volume;
@@ -157,11 +200,9 @@ class SoundManager {
                     vol = 0;
                     clearInterval(fadeOut);
                     audio.pause();
-                    audio.src = '';
                 }
                 try { audio.volume = vol; } catch (_) {}
             }, 100);
-            this._bgAudio = null;
         }
     }
 

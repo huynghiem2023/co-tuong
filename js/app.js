@@ -262,10 +262,13 @@ class App {
             btn.textContent = muted ? '🔇' : '🔊';
         });
         // Initialize AudioContext on first user interaction anywhere
+        // On mobile, keep retrying until audio is actually unlocked
         const initAudio = () => {
             this.sound.init();
-            document.removeEventListener('click', initAudio);
-            document.removeEventListener('touchstart', initAudio);
+            if (this.sound._audioUnlocked) {
+                document.removeEventListener('click', initAudio);
+                document.removeEventListener('touchstart', initAudio);
+            }
         };
         document.addEventListener('click', initAudio);
         document.addEventListener('touchstart', initAudio);

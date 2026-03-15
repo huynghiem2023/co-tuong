@@ -1,11 +1,17 @@
 import http.server
 import sys
 
+MEDIA_EXTENSIONS = ('.mp3', '.wav', '.ogg', '.mp4', '.webm')
+
 class CORSHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
-        # Required for SharedArrayBuffer (WASM pthreads)
-        self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
-        self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
+        # Skip COEP headers for media files — they need range request
+        # support for HTML5 Audio/Video streaming to work properly
+        is_media = self.path.split('?')[0].lower().endswith(MEDIA_EXTENSIONS)
+        if not is_media:
+            # Required for SharedArrayBuffer (WASM pthreads)
+            self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
+            self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
         # Cache control to avoid stale files
         self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
         super().end_headers()
