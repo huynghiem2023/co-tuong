@@ -565,6 +565,11 @@ class PlayMode {
             try {
                 const aiIsRed = !this.playerIsRed;
 
+                // Show loading message if Fairy-Stockfish is still initializing
+                if (XiangqiAI._engineLoading && !XiangqiAI._engineReady && !XiangqiAI._engineFailed) {
+                    this.updateStatus('🧠 Xin bạn chờ 15 giây để máy bơm máu lên não nhé...');
+                }
+
                 // 1. Check ponder hit — AI already pre-computed the response
                 if (this._lastPlayerMove) {
                     const ponderResult = XiangqiAI.checkPonder(this._lastPlayerMove);
