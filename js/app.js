@@ -24,6 +24,8 @@ class App {
         if (OPENINGS.length > 0) {
             this.selectOpening(OPENINGS[0]);
         }
+        // Pre-load Fairy-Stockfish engine in background so it's ready for AI play
+        XiangqiAI.initFairyStockfish();
     }
 
     buildMenu() {
