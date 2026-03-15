@@ -597,57 +597,49 @@ class PlayMode {
                     return;
                 }
 
-                // 3. Quick response for obvious positions
-                // Detect if there's a clear best move (big capture available)
+                // 3. Smart time management
                 let searchTime = 15000;
                 let searchDepth = 20;
-
-                // Check for obvious captures — pieces AI can take
                 const board = this.game.board;
-                const pieceValues = { 'R': 900, 'r': 900, 'H': 400, 'h': 400, 'C': 450, 'c': 450, 
-                                      'A': 200, 'a': 200, 'E': 200, 'e': 200, 'P': 100, 'p': 100,
-                                      'K': 9999, 'k': 9999 };
-                let bestCaptureValue = 0;
-                let hasMajorCapture = false;
-                
-                for (const m of allMoves) {
-                    const target = board[m.to[0]][m.to[1]];
-                    if (target) {
-                        const val = pieceValues[target] || 0;
-                        if (val > bestCaptureValue) bestCaptureValue = val;
-                    }
-                }
+                const aiInCheck = XiangqiRules.isInCheck(board, aiIsRed);
 
-                // Major capture available (Rook, Horse, Cannon or better)
-                if (bestCaptureValue >= 400) {
-                    hasMajorCapture = true;
-                }
-
-                // Count material to detect winning position
-                const enemyMoves = XiangqiRules.getAllLegalMoves(board, !aiIsRed);
-                const inCheck = XiangqiRules.isInCheck(board, !aiIsRed);
-
-                if (hasMajorCapture) {
-                    // Big capture available — respond quickly
-                    searchTime = 3000;
-                    searchDepth = 12;
-                    console.log(`⚡ Major capture available (value=${bestCaptureValue}) — quick response`);
-                    this.updateStatus('💥 Máy phản công!');
-                } else if (inCheck) {
-                    // Opponent is in check — respond fast
-                    searchTime = 4000;
-                    searchDepth = 14;
-                    console.log('⚡ Opponent in check — quick response');
-                    this.updateStatus('⚔️ Máy chiếu!');
-                } else if (allMoves.length >= 3 * enemyMoves.length && enemyMoves.length <= 5) {
-                    // Opponent has very few moves — dominating position
-                    searchTime = 5000;
-                    searchDepth = 14;
-                    console.log('⚡ Dominating position — faster response');
-                    this.updateStatus('🤔 Máy đang suy nghĩ...');
+                if (aiInCheck) {
+                    // AI is in check — ALWAYS use full search (complex position)
+                    console.log('🛡️ AI is in check — full search for best defense');
+                    this.updateStatus('🛡️ Máy đang phòng thủ...');
                 } else {
-                    // Normal position — full search
-                    this.updateStatus('🤔 Máy đang suy nghĩ...');
+                    // Not in check — check for obvious responses
+                    const pieceValues = { 'R': 900, 'r': 900, 'H': 400, 'h': 400, 'C': 450, 'c': 450, 
+                                          'A': 200, 'a': 200, 'E': 200, 'e': 200, 'P': 100, 'p': 100,
+                                          'K': 9999, 'k': 9999 };
+                    let bestCaptureValue = 0;
+                    
+                    for (const m of allMoves) {
+                        const target = board[m.to[0]][m.to[1]];
+                        if (target) {
+                            const val = pieceValues[target] || 0;
+                            if (val > bestCaptureValue) bestCaptureValue = val;
+                        }
+                    }
+
+                    const enemyMoves = XiangqiRules.getAllLegalMoves(board, !aiIsRed);
+
+                    if (bestCaptureValue >= 400) {
+                        // Big capture available and NOT in check — respond quickly
+                        searchTime = 5000;
+                        searchDepth = 14;
+                        console.log(`⚡ Major capture available (value=${bestCaptureValue}) — quick response`);
+                        this.updateStatus('💥 Máy phản công!');
+                    } else if (allMoves.length >= 3 * enemyMoves.length && enemyMoves.length <= 5) {
+                        // Dominating position
+                        searchTime = 5000;
+                        searchDepth = 14;
+                        console.log('⚡ Dominating position — faster response');
+                        this.updateStatus('🤔 Máy đang suy nghĩ...');
+                    } else {
+                        // Normal position — full search
+                        this.updateStatus('🤔 Máy đang suy nghĩ...');
+                    }
                 }
 
                 // 4. Search for best move
