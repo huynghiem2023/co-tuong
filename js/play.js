@@ -597,9 +597,61 @@ class PlayMode {
                     return;
                 }
 
-                // 3. Full strength search (mate-in-1 pre-check is handled in getBestMove)
-                this.updateStatus('🤔 Máy đang suy nghĩ...');
-                const move = await XiangqiAI.getBestMove(this.game.board, aiIsRed, 20, 15000);
+                // 3. Quick response for obvious positions
+                // Detect if there's a clear best move (big capture available)
+                let searchTime = 15000;
+                let searchDepth = 20;
+
+                // Check for obvious captures — pieces AI can take
+                const board = this.game.board;
+                const pieceValues = { 'R': 900, 'r': 900, 'H': 400, 'h': 400, 'C': 450, 'c': 450, 
+                                      'A': 200, 'a': 200, 'E': 200, 'e': 200, 'P': 100, 'p': 100,
+                                      'K': 9999, 'k': 9999 };
+                let bestCaptureValue = 0;
+                let hasMajorCapture = false;
+                
+                for (const m of allMoves) {
+                    const target = board[m.to[0]][m.to[1]];
+                    if (target) {
+                        const val = pieceValues[target] || 0;
+                        if (val > bestCaptureValue) bestCaptureValue = val;
+                    }
+                }
+
+                // Major capture available (Rook, Horse, Cannon or better)
+                if (bestCaptureValue >= 400) {
+                    hasMajorCapture = true;
+                }
+
+                // Count material to detect winning position
+                const enemyMoves = XiangqiRules.getAllLegalMoves(board, !aiIsRed);
+                const inCheck = XiangqiRules.isInCheck(board, !aiIsRed);
+
+                if (hasMajorCapture) {
+                    // Big capture available — respond quickly
+                    searchTime = 3000;
+                    searchDepth = 12;
+                    console.log(`⚡ Major capture available (value=${bestCaptureValue}) — quick response`);
+                    this.updateStatus('💥 Máy phản công!');
+                } else if (inCheck) {
+                    // Opponent is in check — respond fast
+                    searchTime = 4000;
+                    searchDepth = 14;
+                    console.log('⚡ Opponent in check — quick response');
+                    this.updateStatus('⚔️ Máy chiếu!');
+                } else if (allMoves.length >= 3 * enemyMoves.length && enemyMoves.length <= 5) {
+                    // Opponent has very few moves — dominating position
+                    searchTime = 5000;
+                    searchDepth = 14;
+                    console.log('⚡ Dominating position — faster response');
+                    this.updateStatus('🤔 Máy đang suy nghĩ...');
+                } else {
+                    // Normal position — full search
+                    this.updateStatus('🤔 Máy đang suy nghĩ...');
+                }
+
+                // 4. Search for best move
+                const move = await XiangqiAI.getBestMove(this.game.board, aiIsRed, searchDepth, searchTime);
 
                 if (!move) {
                     this.gameOver = true;

@@ -15,7 +15,11 @@ class SoundManager {
         try {
             this.ctx = new (window.AudioContext || window.webkitAudioContext)();
             this.initialized = true;
-            if (!this.muted) {
+            // Retry pending audio that was blocked by autoplay policy
+            if (this._pendingAudio && !this.muted) {
+                this._pendingAudio.play().catch(() => {});
+                this._pendingAudio = null;
+            } else if (!this.muted) {
                 this.startBackgroundMusic();
             }
         } catch (e) {
@@ -54,275 +58,111 @@ class SoundManager {
         return this.muted;
     }
 
-    // ==================== BACKGROUND MUSIC ====================
-    // 女儿情 (Nữ Nhi Tình) style — guzheng arpeggios + erhu melody
+    // ==================== BACKGROUND MUSIC (MP3) ====================
+    // Custom playlist — shuffled, auto-advances to next song
+
+    _shufflePlaylist() {
+        // Fisher-Yates shuffle
+        if (!this._bgTracks) {
+            this._bgTracks = [
+                { file: 'assets/music/01.mp3', name: 'Scarborough Fair' },
+                { file: 'assets/music/02.mp3', name: 'Un-Break My Heart' },
+                { file: 'assets/music/03.mp3', name: 'Woman In Love' },
+                { file: 'assets/music/04.mp3', name: 'Amor Amor Amor' },
+                { file: 'assets/music/05.mp3', name: 'Careless Whisper' },
+                { file: 'assets/music/06.mp3', name: 'Hạ Trắng' },
+                { file: 'assets/music/07.mp3', name: 'Hello' },
+                { file: 'assets/music/08.mp3', name: 'Love Is Blue' },
+                { file: 'assets/music/09.mp3', name: 'My Heart Will Go On' },
+                { file: 'assets/music/10.mp3', name: 'Ngồi Một Góc Riêng Yên Bình' },
+            ];
+        }
+        this._playlist = [...this._bgTracks];
+        for (let i = this._playlist.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this._playlist[i], this._playlist[j]] = [this._playlist[j], this._playlist[i]];
+        }
+        this._playlistIdx = 0;
+    }
+
     startBackgroundMusic() {
-        if (!this._ensureContext() || this.bgMusicPlaying) return;
-
-        const ctx = this.ctx;
+        if (this.bgMusicPlaying) return;
         this.bgMusicPlaying = true;
-        this._bgTimers = [];
 
-        const masterGain = ctx.createGain();
-        masterGain.gain.value = 0.10;
-        masterGain.connect(ctx.destination);
+        // Shuffle playlist on start
+        this._shufflePlaylist();
+        this._playNextTrack();
+    }
 
-        // Reverb effect
-        const reverbDelay = ctx.createDelay(0.5);
-        reverbDelay.delayTime.value = 0.3;
-        const reverbFB = ctx.createGain();
-        reverbFB.gain.value = 0.2;
-        const reverbLP = ctx.createBiquadFilter();
-        reverbLP.type = 'lowpass';
-        reverbLP.frequency.value = 2500;
-        reverbDelay.connect(reverbLP);
-        reverbLP.connect(reverbFB);
-        reverbFB.connect(reverbDelay);
-        const reverbOut = ctx.createGain();
-        reverbOut.gain.value = 0.25;
-        reverbLP.connect(reverbOut);
-        reverbOut.connect(masterGain);
+    _playNextTrack() {
+        if (!this.bgMusicPlaying || this.muted) return;
 
-        // ===== GUZHENG (古筝) — Plucked string synthesis =====
-        const playGuzheng = (freq, time, duration, vol = 0.4) => {
-            if (!this.bgMusicPlaying) return;
-            const sr = ctx.sampleRate;
-            const period = Math.round(sr / freq);
-            const total = Math.round(sr * duration);
-            const buf = ctx.createBuffer(1, total, sr);
-            const d = buf.getChannelData(0);
-            // Pluck excitation — slightly filtered noise
-            for (let i = 0; i < period; i++) {
-                d[i] = (Math.random() * 2 - 1) * 0.5;
-            }
-            // Karplus-Strong with slightly brighter decay (guzheng ring)
-            for (let i = period; i < total; i++) {
-                d[i] = (d[i - period] * 0.5 + d[i - period + 1] * 0.5) * 0.4985;
-            }
-            const src = ctx.createBufferSource();
-            src.buffer = buf;
-            // Guzheng bright tone
-            const flt = ctx.createBiquadFilter();
-            flt.type = 'peaking';
-            flt.frequency.value = freq * 3;
-            flt.Q.value = 2;
-            flt.gain.value = 4;
-            const gain = ctx.createGain();
-            gain.gain.setValueAtTime(vol, time);
-            gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
-            src.connect(flt);
-            flt.connect(gain);
-            gain.connect(masterGain);
-            gain.connect(reverbDelay);
-            src.start(time);
-            src.stop(time + duration);
-        };
+        // Re-shuffle when playlist ends
+        if (this._playlistIdx >= this._playlist.length) {
+            this._shufflePlaylist();
+        }
 
-        // ===== ERHU (二胡) — Expressive bowed string =====
-        const playErhu = (freq, time, duration, vol = 0.15) => {
-            if (!this.bgMusicPlaying) return;
-            // Main tone — sine with harmonics
-            const osc1 = ctx.createOscillator();
-            osc1.type = 'sine';
-            osc1.frequency.value = freq;
-            const osc2 = ctx.createOscillator();
-            osc2.type = 'sine';
-            osc2.frequency.value = freq * 2; // Octave harmonic
-            const osc2vol = ctx.createGain();
-            osc2vol.gain.value = 0.15;
-            osc2.connect(osc2vol);
+        const track = this._playlist[this._playlistIdx];
+        this._playlistIdx++;
 
-            // Expressive vibrato (erhu characteristic)
-            const vib = ctx.createOscillator();
-            vib.type = 'sine';
-            vib.frequency.value = 5.8;
-            const vibGain = ctx.createGain();
-            vibGain.gain.setValueAtTime(0, time);
-            vibGain.gain.linearRampToValueAtTime(4, time + 0.3); // Vibrato grows
-            vib.connect(vibGain);
-            vibGain.connect(osc1.frequency);
+        console.log(`🎵 Now playing: ${track.name}`);
 
-            // Slight pitch slide at start (portamento feel)
-            osc1.frequency.setValueAtTime(freq * 0.98, time);
-            osc1.frequency.linearRampToValueAtTime(freq, time + 0.08);
+        // Create new Audio element
+        const audio = new Audio(track.file);
+        audio.volume = 0.3;
+        audio.preload = 'auto';
 
-            // Erhu-like nasal filter
-            const nasalFilter = ctx.createBiquadFilter();
-            nasalFilter.type = 'peaking';
-            nasalFilter.frequency.value = freq * 1.5;
-            nasalFilter.Q.value = 3;
-            nasalFilter.gain.value = 6;
+        // When song ends, play next
+        audio.addEventListener('ended', () => {
+            this._playNextTrack();
+        });
 
-            const lpFilter = ctx.createBiquadFilter();
-            lpFilter.type = 'lowpass';
-            lpFilter.frequency.value = 3500;
+        // Handle load errors gracefully — skip to next
+        audio.addEventListener('error', (e) => {
+            console.warn(`🎵 Error loading ${track.name}:`, e);
+            setTimeout(() => this._playNextTrack(), 500);
+        });
 
-            // Bowing envelope — gentle swell
-            const noteGain = ctx.createGain();
-            noteGain.gain.setValueAtTime(0, time);
-            noteGain.gain.linearRampToValueAtTime(vol, time + 0.12);
-            noteGain.gain.setValueAtTime(vol * 0.9, time + duration * 0.6);
-            noteGain.gain.linearRampToValueAtTime(0, time + duration);
+        // Fade in
+        audio.volume = 0;
+        audio.play().then(() => {
+            // Smooth fade in over 2 seconds
+            let vol = 0;
+            const fadeIn = setInterval(() => {
+                vol += 0.015;
+                if (vol >= 0.3) {
+                    vol = 0.3;
+                    clearInterval(fadeIn);
+                }
+                audio.volume = vol;
+            }, 100);
+        }).catch(e => {
+            console.warn('🎵 Autoplay blocked, will retry on interaction:', e);
+            // Store for retry on user interaction
+            this._pendingAudio = audio;
+        });
 
-            osc1.connect(nasalFilter);
-            osc2vol.connect(nasalFilter);
-            nasalFilter.connect(lpFilter);
-            lpFilter.connect(noteGain);
-            noteGain.connect(masterGain);
-            noteGain.connect(reverbDelay);
-
-            osc1.start(time); osc1.stop(time + duration + 0.05);
-            osc2.start(time); osc2.stop(time + duration + 0.05);
-            vib.start(time); vib.stop(time + duration + 0.05);
-        };
-
-        // ===== 女儿情 MELODY (simplified, key of C) =====
-        // C4=261.63 D4=293.66 E4=329.63 F4=349.23 G4=392.00
-        // A4=440.00 B4=493.88 C5=523.25 D5=587.33 E5=659.25 G5=783.99
-
-        const melodyPhrases = [
-            // 鸳鸯双栖蝶双飞 — "Uyên ương song thê, điệp song phi"
-            [
-                { f: 329.63, d: 0.5 },  // E4
-                { f: 392.00, d: 0.4 },  // G4
-                { f: 440.00, d: 0.5 },  // A4
-                { f: 523.25, d: 0.8 },  // C5
-                { f: 493.88, d: 0.4 },  // B4
-                { f: 440.00, d: 0.5 },  // A4
-                { f: 392.00, d: 0.5 },  // G4
-                { f: 329.63, d: 1.0 },  // E4
-            ],
-            // 满园春色惹人醉 — "Mãn viên xuân sắc nhạ nhân túy"
-            [
-                { f: 293.66, d: 0.5 },  // D4
-                { f: 261.63, d: 0.4 },  // C4
-                { f: 293.66, d: 0.4 },  // D4
-                { f: 329.63, d: 0.8 },  // E4
-                { f: 392.00, d: 0.5 },  // G4
-                { f: 440.00, d: 0.5 },  // A4
-                { f: 392.00, d: 0.5 },  // G4
-                { f: 329.63, d: 1.2 },  // E4
-            ],
-            // 悄悄问圣僧 — "Tiễu tiễu vấn thánh tăng"
-            [
-                { f: 440.00, d: 0.5 },  // A4
-                { f: 523.25, d: 0.6 },  // C5
-                { f: 587.33, d: 0.8 },  // D5
-                { f: 659.25, d: 1.0 },  // E5
-                { f: 587.33, d: 0.4 },  // D5
-                { f: 523.25, d: 0.6 },  // C5
-                { f: 440.00, d: 1.2 },  // A4
-            ],
-            // 女儿美不美 — "Nữ nhi mỹ bất mỹ"
-            [
-                { f: 392.00, d: 0.6 },  // G4
-                { f: 440.00, d: 0.5 },  // A4
-                { f: 523.25, d: 0.8 },  // C5
-                { f: 440.00, d: 0.5 },  // A4
-                { f: 392.00, d: 0.4 },  // G4
-                { f: 329.63, d: 0.5 },  // E4
-                { f: 293.66, d: 0.5 },  // D4
-                { f: 261.63, d: 1.5 },  // C4
-            ],
-            // 说什么王权富贵 — "Thuyết thập ma vương quyền phú quý"
-            [
-                { f: 329.63, d: 0.4 },  // E4
-                { f: 392.00, d: 0.4 },  // G4
-                { f: 440.00, d: 0.6 },  // A4
-                { f: 523.25, d: 0.5 },  // C5
-                { f: 587.33, d: 0.8 },  // D5
-                { f: 523.25, d: 0.5 },  // C5
-                { f: 440.00, d: 0.6 },  // A4
-                { f: 392.00, d: 1.2 },  // G4
-            ],
-            // 怕什么戒律清规 — "Phạ thập ma giới luật thanh quy"
-            [
-                { f: 587.33, d: 0.5 },  // D5
-                { f: 523.25, d: 0.4 },  // C5
-                { f: 440.00, d: 0.5 },  // A4
-                { f: 392.00, d: 0.6 },  // G4
-                { f: 329.63, d: 0.5 },  // E4
-                { f: 293.66, d: 0.4 },  // D4
-                { f: 329.63, d: 0.5 },  // E4
-                { f: 261.63, d: 1.5 },  // C4
-            ],
-        ];
-
-        // Accompaniment chords matching the melody
-        const chords = [
-            // Am: A C E
-            [220.00, 261.63, 329.63, 440.00, 329.63, 261.63],
-            // C:  C E G
-            [261.63, 329.63, 392.00, 523.25, 392.00, 329.63],
-            // F:  F A C
-            [174.61, 220.00, 261.63, 349.23, 261.63, 220.00],
-            // G:  G B D
-            [196.00, 246.94, 293.66, 392.00, 293.66, 246.94],
-            // Am: A C E
-            [220.00, 261.63, 329.63, 440.00, 329.63, 261.63],
-            // Em: E G B
-            [164.81, 196.00, 246.94, 329.63, 246.94, 196.00],
-        ];
-
-        // ===== MAIN LOOP =====
-        let phraseIdx = 0;
-
-        const playPhrase = () => {
-            if (!this.bgMusicPlaying || this.muted) return;
-            const now = ctx.currentTime;
-            const idx = phraseIdx % melodyPhrases.length;
-
-            // Play guzheng arpeggio accompaniment
-            const chord = chords[idx % chords.length];
-            const spacing = 0.32;
-            for (let i = 0; i < chord.length; i++) {
-                playGuzheng(chord[i], now + i * spacing, 2.0, 0.25 + Math.random() * 0.08);
-            }
-
-            // Play erhu melody slightly after guitar starts
-            const phrase = melodyPhrases[idx];
-            let t = now + 0.15;
-            for (const note of phrase) {
-                playErhu(note.f, t, note.d, 0.12);
-                t += note.d + 0.03;
-            }
-
-            phraseIdx++;
-
-            // Pause between phrases (natural breathing space)
-            const phraseDuration = phrase.reduce((s, n) => s + n.d + 0.03, 0);
-            const pause = phraseDuration * 1000 + 800 + Math.random() * 600;
-            const timer = setTimeout(playPhrase, pause);
-            this._bgTimers.push(timer);
-        };
-
-        this.bgNodes = { masterGain, reverbDelay, reverbFB, reverbLP, reverbOut };
-
-        // Start after gentle pause
-        const startTimer = setTimeout(playPhrase, 1200);
-        this._bgTimers.push(startTimer);
+        this._bgAudio = audio;
     }
 
     stopBackgroundMusic() {
-        if (!this.bgMusicPlaying) return;
         this.bgMusicPlaying = false;
-        // Clear all scheduled timers
-        if (this._bgTimers) {
-            this._bgTimers.forEach(t => clearTimeout(t));
-            this._bgTimers = [];
+        if (this._bgAudio) {
+            // Fade out over 1 second
+            const audio = this._bgAudio;
+            let vol = audio.volume;
+            const fadeOut = setInterval(() => {
+                vol -= 0.03;
+                if (vol <= 0) {
+                    vol = 0;
+                    clearInterval(fadeOut);
+                    audio.pause();
+                    audio.src = '';
+                }
+                try { audio.volume = vol; } catch (_) {}
+            }, 100);
+            this._bgAudio = null;
         }
-        clearTimeout(this._melodyTimer);
-        if (this.bgNodes) {
-            const { masterGain } = this.bgNodes;
-            try {
-                const now = this.ctx.currentTime;
-                masterGain.gain.linearRampToValueAtTime(0, now + 0.8);
-            } catch (e) { /* context may be closed */ }
-        }
-        // Clean up after fade
-        setTimeout(() => {
-            this.bgNodes = null;
-        }, 1000);
     }
 
     // ==================== GAME SOUNDS ====================
