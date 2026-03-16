@@ -1,7 +1,7 @@
 // sw.js - Service Worker for offline support + SharedArrayBuffer headers
 // Injects COOP/COEP headers so Fairy-Stockfish WASM works on GitHub Pages
 
-const CACHE_NAME = 'co-tuong-v23';
+const CACHE_NAME = 'co-tuong-v24';
 const ASSETS = [
     './',
     './index.html',

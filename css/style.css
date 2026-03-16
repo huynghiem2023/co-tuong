@@ -233,6 +233,82 @@ html, body {
     overflow: hidden;
 }
 
+/* Profile Section */
+.profile-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    gap: 12px;
+    overflow-y: auto;
+}
+
+.profile-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    transition: box-shadow 0.3s, transform 0.3s;
+}
+
+.profile-card.winner {
+    box-shadow: 0 0 20px rgba(240, 192, 64, 0.15);
+    border-color: rgba(240, 192, 64, 0.3);
+}
+
+.profile-card.winner:hover {
+    box-shadow: 0 0 30px rgba(240, 192, 64, 0.3);
+    transform: translateY(-2px);
+}
+
+.profile-card.loser {
+    box-shadow: 0 0 20px rgba(231, 76, 60, 0.1);
+    border-color: rgba(231, 76, 60, 0.2);
+}
+
+.profile-card.loser:hover {
+    box-shadow: 0 0 30px rgba(231, 76, 60, 0.25);
+    transform: translateY(-2px);
+}
+
+.profile-img {
+    width: 220px;
+    height: auto;
+    border-radius: 12px;
+    border: 2px solid var(--gold-dim);
+    object-fit: cover;
+    transition: border-color 0.3s;
+}
+
+.profile-card.loser .profile-img {
+    border-color: rgba(231, 76, 60, 0.4);
+}
+
+.profile-card.winner:hover .profile-img {
+    border-color: var(--gold);
+}
+
+.profile-card.loser:hover .profile-img {
+    border-color: var(--red);
+}
+
+.profile-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold);
+    text-align: center;
+    letter-spacing: 0.5px;
+}
+
+.profile-card.loser .profile-title {
+    color: var(--red);
+}
+
 #board-container {
     display: flex;
     align-items: center;
@@ -488,6 +564,7 @@ html, body {
     }
     .sidebar.open { left: 0; }
     #mobile-menu-btn { display: block; }
+    .profile-section { display: none; }
     .board-area { flex-direction: column; align-items: center; padding: 10px; gap: 10px; }
     .info-panel { min-width: 100%; }
     #board-container { padding: 8px; }
