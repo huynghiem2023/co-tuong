@@ -688,30 +688,86 @@ class PlayMode {
         this.board.render(this.game.board);
     }
 
-    showHint() {
+    async showHint() {
         if (!this.active || !this.isPlayerTurn || this.gameOver || this.aiThinking) return;
         try {
-            this.updateStatus('💡 Đang tìm nước gợi ý...');
-            setTimeout(() => {
-                // Use minimax directly (synchronous, fast) instead of async getBestMove
-                const bestMove = XiangqiAI._getMinimaxMove(this.game.board, this.playerIsRed, 5, 3000);
-                if (!bestMove) {
-                    this.updateStatus('Không tìm thấy gợi ý!');
-                    return;
-                }
-                const pieceName = this.getPieceFullName(this.game.board[bestMove.from[0]][bestMove.from[1]]);
-                this.board.hintCells = [bestMove.from, bestMove.to];
-                this.board.render(this.game.board);
-                this.updateStatus(`💡 Gợi ý: Di chuyển ${pieceName}`);
-                document.getElementById('explanation-text').textContent =
-                    `💡 Gợi ý: Di chuyển ${pieceName} từ ô xanh.`;
-                setTimeout(() => {
-                    if (this.active) {
-                        this.board.hintCells = [];
-                        this.board.render(this.game.board);
+            this.updateStatus('💡 Đang phân tích nước đi tốt nhất...');
+            document.getElementById('explanation-text').innerHTML =
+                '<div style="color:var(--gold)">💡 Đang phân tích...</div>';
+
+            let bestMove = null;
+            let source = 'minimax';
+
+            // Try Fairy-Stockfish first (much stronger)
+            if (XiangqiAI._engineReady && !XiangqiAI._engineFailed) {
+                try {
+                    const result = await XiangqiAI.requestFairyMove(
+                        this.game.board, this.playerIsRed, 20, 5000
+                    );
+                    if (result && result.move) {
+                        const piece = this.game.board[result.move.from[0]][result.move.from[1]];
+                        if (piece) {
+                            const legal = XiangqiRules.getLegalMoves(
+                                this.game.board, result.move.from[0], result.move.from[1]
+                            );
+                            const isLegal = legal.some(
+                                m => m[0] === result.move.to[0] && m[1] === result.move.to[1]
+                            );
+                            if (isLegal) {
+                                bestMove = result.move;
+                                source = 'fairy';
+                            }
+                        }
                     }
-                }, 3000);
-            }, 50);
+                } catch (e) {
+                    console.warn('Fairy hint error, fallback to minimax:', e);
+                }
+            }
+
+            // Fallback: deeper minimax (depth 8)
+            if (!bestMove) {
+                bestMove = XiangqiAI._getMinimaxMove(this.game.board, this.playerIsRed, 8, 5000);
+            }
+
+            if (!bestMove || !this.active) {
+                this.updateStatus('Không tìm thấy gợi ý!');
+                return;
+            }
+
+            const piece = this.game.board[bestMove.from[0]][bestMove.from[1]];
+            const pieceName = this.getPieceFullName(piece);
+            const captured = this.game.board[bestMove.to[0]][bestMove.to[1]];
+            const capturedName = captured ? this.getPieceFullName(captured) : null;
+
+            // Tactical analysis for the hint move
+            const boardAfter = XiangqiRules.makeMove(
+                this.game.board, bestMove.from[0], bestMove.from[1], bestMove.to[0], bestMove.to[1]
+            );
+            const tactics = this.analyzeTactics(
+                this.game.board, boardAfter, bestMove.from, bestMove.to, this.playerIsRed
+            );
+
+            // Show hint on board (stays until next click)
+            this.board.hintCells = [bestMove.from, bestMove.to];
+            this.board.render(this.game.board);
+
+            // Build explanation
+            let actionText = `Di chuyển ${pieceName}`;
+            if (capturedName) actionText += ` ăn ${capturedName}`;
+
+            const sourceLabel = source === 'fairy' ? '🐟 Fairy-Stockfish' : '🤖 AI';
+            let explanationHtml = `<div style="margin-bottom:6px"><strong>💡 Gợi ý (${sourceLabel}):</strong> ${actionText}</div>`;
+
+            if (tactics.length > 0) {
+                explanationHtml += `<div style="color:var(--text-dim); font-size:12.5px; line-height:1.6">`;
+                for (const t of tactics.slice(0, 3)) {
+                    explanationHtml += `• ${t}<br>`;
+                }
+                explanationHtml += '</div>';
+            }
+
+            document.getElementById('play-status').textContent = `💡 ${actionText}`;
+            document.getElementById('explanation-text').innerHTML = explanationHtml;
         } catch (e) {
             console.error('Hint error:', e);
             this.updateStatus('Đến lượt bạn!');
