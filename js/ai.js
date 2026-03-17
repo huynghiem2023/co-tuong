@@ -631,7 +631,7 @@ const XiangqiAI = {
     },
 
     // ========== Public API ==========
-    async getBestMove(board, isRedTurn, depth = 20, timeLimitMs = 15000) {
+    async getBestMove(board, isRedTurn, depth = 12, timeLimitMs = 5000) {
         // ALWAYS check for mate-in-1 first (instant, guaranteed)
         const mateMove = this._checkMateIn1(board, isRedTurn);
         if (mateMove) return mateMove;
@@ -647,7 +647,7 @@ const XiangqiAI = {
             const waitStart = performance.now();
             while (this._engineLoading && !this._engineReady && !this._engineFailed) {
                 await new Promise(r => setTimeout(r, 200));
-                if (performance.now() - waitStart > 15000) {
+                if (performance.now() - waitStart > 8000) {
                     console.log('⚠️ Engine still loading, using built-in AI');
                     break;
                 }
@@ -733,7 +733,7 @@ const XiangqiAI = {
 
     async _getFairyMove(board, isRedTurn, depth, timeLimitMs) {
         try {
-            const fairyDepth = Math.min(depth + 16, 50);
+            const fairyDepth = Math.min(depth + 8, 30);
             const result = await this.requestFairyMove(board, isRedTurn, fairyDepth, timeLimitMs);
             if (result && result.move) {
                 const move = result.move;

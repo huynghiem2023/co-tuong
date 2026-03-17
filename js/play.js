@@ -463,16 +463,16 @@ class PlayMode {
 
         // Score after the player's move
         const boardAfterPlayer = XiangqiRules.makeMove(boardBefore, from[0], from[1], to[0], to[1]);
-        const playerResult = XiangqiAI.minimax(boardAfterPlayer, 6, -Infinity, Infinity, !playerIsRed, performance.now(), 3000, 6);
+        const playerResult = XiangqiAI.minimax(boardAfterPlayer, 4, -Infinity, Infinity, !playerIsRed, performance.now(), 1000, 4);
         const scoreAfterPlayer = playerResult.score;
 
         // Find the best move
-        const bestMove = XiangqiAI._getMinimaxMove(boardBefore, playerIsRed, 7, 3000);
+        const bestMove = XiangqiAI._getMinimaxMove(boardBefore, playerIsRed, 5, 1000);
 
         let scoreAfterBest = scoreAfterPlayer;
         if (bestMove) {
             const boardAfterBest = XiangqiRules.makeMove(boardBefore, bestMove.from[0], bestMove.from[1], bestMove.to[0], bestMove.to[1]);
-            const bestResult = XiangqiAI.minimax(boardAfterBest, 6, -Infinity, Infinity, !playerIsRed, performance.now(), 3000, 6);
+            const bestResult = XiangqiAI.minimax(boardAfterBest, 4, -Infinity, Infinity, !playerIsRed, performance.now(), 1000, 4);
             scoreAfterBest = bestResult.score;
         }
 
@@ -615,8 +615,8 @@ class PlayMode {
                 }
 
                 // 3. Smart time management
-                let searchTime = 15000;
-                let searchDepth = 20;
+                let searchTime = 5000;
+                let searchDepth = 12;
                 const board = this.game.board;
                 const aiInCheck = XiangqiRules.isInCheck(board, aiIsRed);
 
@@ -643,14 +643,14 @@ class PlayMode {
 
                     if (bestCaptureValue >= 400) {
                         // Big capture available and NOT in check — respond quickly
-                        searchTime = 5000;
-                        searchDepth = 14;
+                        searchTime = 3000;
+                        searchDepth = 10;
                         console.log(`⚡ Major capture available (value=${bestCaptureValue}) — quick response`);
                         this.updateStatus('💥 Máy phản công!');
                     } else if (allMoves.length >= 3 * enemyMoves.length && enemyMoves.length <= 5) {
                         // Dominating position
-                        searchTime = 5000;
-                        searchDepth = 14;
+                        searchTime = 3000;
+                        searchDepth = 10;
                         console.log('⚡ Dominating position — faster response');
                         this.updateStatus('🤔 Máy đang suy nghĩ...');
                     } else {

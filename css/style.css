@@ -240,19 +240,20 @@ html, body {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    gap: 12px;
+    gap: 8px;
     overflow-y: auto;
+    max-width: 160px;
 }
 
 .profile-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 12px;
+    border-radius: 12px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     transition: box-shadow 0.3s, transform 0.3s;
 }
 
@@ -277,9 +278,9 @@ html, body {
 }
 
 .profile-img {
-    width: 220px;
+    width: 140px;
     height: auto;
-    border-radius: 12px;
+    border-radius: 10px;
     border: 2px solid var(--gold-dim);
     object-fit: cover;
     transition: border-color 0.3s;
@@ -298,11 +299,11 @@ html, body {
 }
 
 .profile-title {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 700;
     color: var(--gold);
     text-align: center;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
 }
 
 .profile-card.loser .profile-title {
