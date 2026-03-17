@@ -411,15 +411,18 @@ class BoardRenderer {
     }
 
     // Realistic shadow ellipse cast onto the board surface
+    // Simulates viewing from a slight angle with light from upper-left
     drawPieceShadow(x, y) {
         const ctx = this.ctx, r = this.pieceRadius;
         ctx.save();
+        // Longer shadow offset to simulate elevated perspective
+        const sx = x + 5, sy = y + 9;
         ctx.beginPath();
-        // Offset shadow down-right to simulate directional light from upper-left
-        ctx.ellipse(x + 3, y + 5, r * 0.92, r * 0.55, 0.15, 0, Math.PI * 2);
-        const sg = ctx.createRadialGradient(x + 3, y + 5, r * 0.1, x + 3, y + 5, r * 0.92);
-        sg.addColorStop(0, 'rgba(0,0,0,0.35)');
-        sg.addColorStop(0.6, 'rgba(0,0,0,0.15)');
+        ctx.ellipse(sx, sy, r * 0.95, r * 0.70, 0.12, 0, Math.PI * 2);
+        const sg = ctx.createRadialGradient(sx, sy, r * 0.08, sx, sy, r * 0.95);
+        sg.addColorStop(0, 'rgba(0,0,0,0.40)');
+        sg.addColorStop(0.5, 'rgba(0,0,0,0.18)');
+        sg.addColorStop(0.8, 'rgba(0,0,0,0.06)');
         sg.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = sg;
         ctx.fill();
