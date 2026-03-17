@@ -396,11 +396,34 @@ class BoardRenderer {
 
     // ==================== PIECE DRAWING ====================
     drawPieces(board) {
+        // Pass 1: Draw all piece shadows first (so they go behind overlapping pieces)
+        for (let row = 0; row <= 9; row++)
+            for (let col = 0; col <= 8; col++) {
+                const pc = board[row][col];
+                if (pc) { const p = this.getCanvasPos(row, col); this.drawPieceShadow(p.x, p.y); }
+            }
+        // Pass 2: Draw pieces on top of shadows
         for (let row = 0; row <= 9; row++)
             for (let col = 0; col <= 8; col++) {
                 const pc = board[row][col];
                 if (pc) { const p = this.getCanvasPos(row, col); this.drawPieceAt(p.x, p.y, pc); }
             }
+    }
+
+    // Realistic shadow ellipse cast onto the board surface
+    drawPieceShadow(x, y) {
+        const ctx = this.ctx, r = this.pieceRadius;
+        ctx.save();
+        ctx.beginPath();
+        // Offset shadow down-right to simulate directional light from upper-left
+        ctx.ellipse(x + 3, y + 5, r * 0.92, r * 0.55, 0.15, 0, Math.PI * 2);
+        const sg = ctx.createRadialGradient(x + 3, y + 5, r * 0.1, x + 3, y + 5, r * 0.92);
+        sg.addColorStop(0, 'rgba(0,0,0,0.35)');
+        sg.addColorStop(0.6, 'rgba(0,0,0,0.15)');
+        sg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = sg;
+        ctx.fill();
+        ctx.restore();
     }
 
     drawPieceAt(x, y, piece) {
@@ -411,24 +434,33 @@ class BoardRenderer {
 
     drawPieceRoyal(x, y, piece) {
         const ctx = this.ctx, r = this.pieceRadius * 1.15, isRed = piece === piece.toUpperCase(), t = this.theme;
-        ctx.save();
-
-        // Piece shadow
-        ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 4;
-        ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 3;
 
         // Wooden piece body — natural warm color gradient
-        const bodyG = ctx.createRadialGradient(x - r*0.2, y - r*0.25, r*0.1, x, y, r);
-        bodyG.addColorStop(0, '#f8ecd0');
-        bodyG.addColorStop(0.4, '#e8d8b8');
-        bodyG.addColorStop(0.7, '#d8c8a0');
-        bodyG.addColorStop(1, '#c0a878');
+        const bodyG = ctx.createRadialGradient(x - r*0.25, y - r*0.3, r*0.1, x + r*0.1, y + r*0.1, r);
+        bodyG.addColorStop(0, '#faf0d8');
+        bodyG.addColorStop(0.3, '#f0e4c8');
+        bodyG.addColorStop(0.6, '#e0d0a8');
+        bodyG.addColorStop(0.85, '#c8b088');
+        bodyG.addColorStop(1, '#a89068');
         ctx.fillStyle = bodyG;
         ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
 
+        // 3D bevelled rim — light top-left, dark bottom-right
+        ctx.save();
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.clip();
+        // Light edge (top-left)
+        const rimL = ctx.createLinearGradient(x - r, y - r, x + r*0.3, y + r*0.3);
+        rimL.addColorStop(0, 'rgba(255,248,230,0.7)'); rimL.addColorStop(0.5, 'rgba(255,248,230,0)'); rimL.addColorStop(1, 'rgba(255,248,230,0)');
+        ctx.fillStyle = rimL;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+        // Dark edge (bottom-right)
+        const rimD = ctx.createLinearGradient(x - r*0.3, y - r*0.3, x + r, y + r);
+        rimD.addColorStop(0, 'rgba(0,0,0,0)'); rimD.addColorStop(0.5, 'rgba(0,0,0,0)'); rimD.addColorStop(1, 'rgba(0,0,0,0.25)');
+        ctx.fillStyle = rimD;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
         ctx.restore();
 
-        // Raised edge rim
+        // Outer rim stroke
         ctx.strokeStyle = '#a08860'; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.arc(x, y, r - 1, 0, Math.PI*2); ctx.stroke();
 
@@ -436,6 +468,14 @@ class BoardRenderer {
         const ringColor = isRed ? 'rgba(160,40,30,0.7)' : 'rgba(30,40,60,0.6)';
         ctx.strokeStyle = ringColor; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(x, y, r - 5, 0, Math.PI*2); ctx.stroke();
+
+        // Specular highlight — glossy dome effect
+        const spec = ctx.createRadialGradient(x - r*0.25, y - r*0.3, r*0.05, x - r*0.1, y - r*0.15, r*0.6);
+        spec.addColorStop(0, 'rgba(255,255,255,0.45)');
+        spec.addColorStop(0.5, 'rgba(255,255,255,0.08)');
+        spec.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = spec;
+        ctx.beginPath(); ctx.arc(x, y, r - 5, 0, Math.PI*2); ctx.fill();
 
         // Chinese character
         const charColor = isRed ? '#8b1a1a' : '#1a1a2a';
@@ -449,15 +489,39 @@ class BoardRenderer {
     drawPiece2D(x, y, piece) {
         const ctx = this.ctx, r = this.pieceRadius, isRed = piece === piece.toUpperCase(), t = this.theme;
         const colors = isRed ? t.redPiece : t.blackPiece;
-        ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 5;
-        ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+
+        // Main body gradient (shifted highlight for 3D dome)
         ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-        const bg = ctx.createRadialGradient(x - r*0.3, y - r*0.3, r*0.05, x, y, r);
-        bg.addColorStop(0, colors[0]); bg.addColorStop(0.4, colors[1]); bg.addColorStop(1, colors[2]);
-        ctx.fillStyle = bg; ctx.fill(); ctx.restore();
+        const bg = ctx.createRadialGradient(x - r*0.3, y - r*0.35, r*0.05, x + r*0.1, y + r*0.1, r);
+        bg.addColorStop(0, colors[0]); bg.addColorStop(0.35, colors[1]); bg.addColorStop(1, colors[2]);
+        ctx.fillStyle = bg; ctx.fill();
+
+        // 3D bevelled rim — light top-left arc, dark bottom-right arc
+        ctx.save();
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.clip();
+        const rimL = ctx.createLinearGradient(x - r, y - r, x + r*0.3, y + r*0.3);
+        rimL.addColorStop(0, 'rgba(255,255,255,0.35)'); rimL.addColorStop(0.4, 'rgba(255,255,255,0)'); rimL.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = rimL;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+        const rimD = ctx.createLinearGradient(x - r*0.3, y - r*0.3, x + r, y + r);
+        rimD.addColorStop(0, 'rgba(0,0,0,0)'); rimD.addColorStop(0.6, 'rgba(0,0,0,0)'); rimD.addColorStop(1, 'rgba(0,0,0,0.3)');
+        ctx.fillStyle = rimD;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+
+        // Inner ring
         ctx.beginPath(); ctx.arc(x, y, r - 3.5, 0, Math.PI * 2);
         ctx.strokeStyle = isRed ? t.redRing : t.blackRing; ctx.lineWidth = 1.5; ctx.stroke();
+
+        // Specular highlight — small glossy dome
+        const spec = ctx.createRadialGradient(x - r*0.28, y - r*0.32, r*0.02, x - r*0.1, y - r*0.15, r*0.55);
+        spec.addColorStop(0, 'rgba(255,255,255,0.50)');
+        spec.addColorStop(0.4, 'rgba(255,255,255,0.10)');
+        spec.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = spec;
+        ctx.beginPath(); ctx.arc(x, y, r - 3.5, 0, Math.PI*2); ctx.fill();
+
+        // Chinese character
         ctx.fillStyle = isRed ? t.redChar : t.blackChar;
         ctx.font = `bold ${r*1.05}px "KaiTi","STKaiti","SimSun","Microsoft YaHei",serif`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -467,19 +531,10 @@ class BoardRenderer {
     drawPiece3D(x, y, piece) {
         const ctx = this.ctx, r = this.pieceRadius + 2;
         const isRed = piece === piece.toUpperCase();
-        // Use uppercase key to find image (shared between Red and Black)
         const imgKey = piece.toUpperCase();
         const img = this.assets.pieces[imgKey];
         const hasImg = img && img.naturalWidth > 0;
         const imgSize = r * 2.3;
-
-        // Shadow
-        ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 10;
-        ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 5;
-        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0,0,0,0.01)'; ctx.fill();
-        ctx.restore();
 
         if (hasImg) {
             // Draw the 3D piece image
@@ -488,26 +543,43 @@ class BoardRenderer {
             ctx.drawImage(img, x - imgSize/2, y - imgSize/2, imgSize, imgSize);
             // Color tint overlay to distinguish Red vs Black
             if (!isRed) {
-                // Light cool tint for Black pieces — preserves wood grain
                 ctx.fillStyle = 'rgba(20, 40, 70, 0.22)';
                 ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
             } else {
-                // Very subtle warm tint for Red pieces
                 ctx.fillStyle = 'rgba(200, 50, 20, 0.08)';
                 ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
             }
             ctx.restore();
-            // Colored ring border to clearly identify side
+
+            // 3D bevelled rim
+            ctx.save();
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.clip();
+            const rimL = ctx.createLinearGradient(x - r, y - r, x + r*0.3, y + r*0.3);
+            rimL.addColorStop(0, 'rgba(255,255,255,0.30)'); rimL.addColorStop(0.4, 'rgba(255,255,255,0)'); rimL.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = rimL;
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+            const rimD = ctx.createLinearGradient(x - r*0.3, y - r*0.3, x + r, y + r);
+            rimD.addColorStop(0, 'rgba(0,0,0,0)'); rimD.addColorStop(0.6, 'rgba(0,0,0,0)'); rimD.addColorStop(1, 'rgba(0,0,0,0.25)');
+            ctx.fillStyle = rimD;
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+
+            // Colored ring border
             ctx.beginPath(); ctx.arc(x, y, r - 1, 0, Math.PI * 2);
             ctx.strokeStyle = isRed ? 'rgba(180, 50, 20, 0.6)' : 'rgba(40, 60, 90, 0.5)';
             ctx.lineWidth = 2; ctx.stroke();
+
+            // Specular highlight
+            const spec = ctx.createRadialGradient(x - r*0.25, y - r*0.3, r*0.03, x - r*0.1, y - r*0.15, r*0.5);
+            spec.addColorStop(0, 'rgba(255,255,255,0.40)');
+            spec.addColorStop(0.4, 'rgba(255,255,255,0.08)');
+            spec.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = spec;
+            ctx.beginPath(); ctx.arc(x, y, r - 2, 0, Math.PI*2); ctx.fill();
         } else {
             // Fallback gradient when no image available
-            ctx.save();
-            ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 8;
-            ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 3;
             ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-            const bg = ctx.createRadialGradient(x-r*0.3, y-r*0.3, r*0.05, x+r*0.1, y+r*0.1, r);
+            const bg = ctx.createRadialGradient(x-r*0.3, y-r*0.35, r*0.05, x+r*0.1, y+r*0.1, r);
             if (isRed) {
                 bg.addColorStop(0,'#ffa090'); bg.addColorStop(0.3,'#e53935');
                 bg.addColorStop(0.7,'#b71c1c'); bg.addColorStop(1,'#5a0000');
@@ -515,12 +587,34 @@ class BoardRenderer {
                 bg.addColorStop(0,'#90a4ae'); bg.addColorStop(0.3,'#546e7a');
                 bg.addColorStop(0.7,'#263238'); bg.addColorStop(1,'#0a0e10');
             }
-            ctx.fillStyle = bg; ctx.fill(); ctx.restore();
+            ctx.fillStyle = bg; ctx.fill();
+
+            // 3D bevelled rim
+            ctx.save();
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.clip();
+            const rimL2 = ctx.createLinearGradient(x - r, y - r, x + r*0.3, y + r*0.3);
+            rimL2.addColorStop(0, 'rgba(255,255,255,0.35)'); rimL2.addColorStop(0.4, 'rgba(255,255,255,0)'); rimL2.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = rimL2;
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+            const rimD2 = ctx.createLinearGradient(x - r*0.3, y - r*0.3, x + r, y + r);
+            rimD2.addColorStop(0, 'rgba(0,0,0,0)'); rimD2.addColorStop(0.6, 'rgba(0,0,0,0)'); rimD2.addColorStop(1, 'rgba(0,0,0,0.3)');
+            ctx.fillStyle = rimD2;
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+
             ctx.beginPath(); ctx.arc(x, y, r-4, 0, Math.PI*2);
             ctx.strokeStyle = isRed ? 'rgba(255,215,0,0.5)' : 'rgba(180,190,200,0.4)';
             ctx.lineWidth = 1.5; ctx.stroke();
-            // Fallback text
-            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+
+            // Specular + text
+            const spec2 = ctx.createRadialGradient(x - r*0.25, y - r*0.3, r*0.03, x - r*0.1, y - r*0.15, r*0.55);
+            spec2.addColorStop(0, 'rgba(255,255,255,0.45)');
+            spec2.addColorStop(0.4, 'rgba(255,255,255,0.08)');
+            spec2.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = spec2;
+            ctx.beginPath(); ctx.arc(x, y, r - 4, 0, Math.PI*2); ctx.fill();
+
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
             ctx.font = `bold ${r}px "KaiTi","STKaiti","SimSun","Microsoft YaHei",serif`;
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(this.pieceNames[piece], x+1, y+2);
