@@ -755,8 +755,7 @@ class PlayMode {
             let actionText = `Di chuyển ${pieceName}`;
             if (capturedName) actionText += ` ăn ${capturedName}`;
 
-            const sourceLabel = source === 'fairy' ? '🐟 Fairy-Stockfish' : '🤖 AI';
-            let explanationHtml = `<div style="margin-bottom:6px"><strong>💡 Gợi ý (${sourceLabel}):</strong> ${actionText}</div>`;
+            let explanationHtml = `<div style="margin-bottom:6px"><strong>💡 Gợi ý:</strong> ${actionText}</div>`;
 
             if (tactics.length > 0) {
                 explanationHtml += `<div style="color:var(--text-dim); font-size:12.5px; line-height:1.6">`;
