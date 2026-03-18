@@ -22,7 +22,7 @@ html, body {
     font-family: 'Noto Sans', sans-serif;
     background: var(--bg);
     color: var(--text);
-    overflow: hidden;
+    overflow: auto;
 }
 
 /* Layout */
@@ -230,7 +230,7 @@ html, body {
     display: flex;
     gap: 16px;
     padding: 16px 20px;
-    overflow: hidden;
+    overflow-y: auto;
 }
 
 /* Profile Section */
@@ -552,6 +552,12 @@ html, body {
     z-index: 90;
 }
 .overlay.show { display: block; }
+
+/* Tablet (iPad landscape ~1024px) */
+@media (max-width: 1100px) {
+    .profile-section { display: none; }
+    .board-area { overflow-y: auto; gap: 12px; padding: 12px 16px; }
+}
 
 /* Responsive */
 @media (max-width: 900px) {
